@@ -126,6 +126,10 @@ public class DrawCommand implements Serializable {
         return username;
     }
 
+    public String getChatText() {
+        return chatText;
+    }
+
     @Override
     public String toString() {
         return "[DrawCommand: type=" + type + ", from=" + username + "]";

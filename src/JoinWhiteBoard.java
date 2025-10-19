@@ -4,6 +4,10 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
 import java.io.*;
 import java.net.Socket;
@@ -17,6 +21,9 @@ public class JoinWhiteBoard {
     private static String userName;
     private static String serverIP;
     private static int serverPort;
+    private ConnectionPanel connectionPanel = new ConnectionPanel();
+    private DrawPanel drawPanel = new DrawPanel();
+    private ChatPanel chatPanel = new ChatPanel();
 
     private void connectToServer(String host, int port) {
         try {
@@ -75,6 +82,7 @@ public class JoinWhiteBoard {
                     System.out.println("[Server] Client says HELLO");
                 }
                 case TEXT -> {System.out.println("[Server] Client says TEXT");}
+                case CHAT -> {addMessage(chatPanel.getChatConversation(), msg.getChatText(), false);}
                 case CLEAR -> {
                     System.out.println("[Server] Client says CLEAR");
                     canvas.clearWhiteBoard();}
@@ -91,11 +99,9 @@ public class JoinWhiteBoard {
     private JPanel createToolboxPanel() {
         JPanel toolpanel = new JPanel();
         toolpanel.setLayout(new BoxLayout(toolpanel, BoxLayout.Y_AXIS));
-
-        toolpanel.add(new ConnectionPanel());
-        toolpanel.add(new DrawPanel());
-        toolpanel.add(new ChatPanel());
-
+        toolpanel.add(connectionPanel);
+        toolpanel.add(drawPanel);
+        toolpanel.add(chatPanel);
         return toolpanel;
     }
 
@@ -320,7 +326,7 @@ public class JoinWhiteBoard {
     }
 
     public class ChatPanel extends JPanel {
-        private JTextArea chatConversation;
+        private JTextPane chatConversation;
         private JTextField chatMsg;
         private JButton chatSend;
         private JScrollPane chatScroll;
@@ -333,19 +339,57 @@ public class JoinWhiteBoard {
             c.gridx = 0;
             c.gridy = 0;
             c.anchor = GridBagConstraints.WEST;
-            chatConversation = new JTextArea(10, 18);
+            chatConversation = new JTextPane();
             chatConversation.setEditable(false);
             chatScroll = new JScrollPane(chatConversation);
             chatScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-            c.fill = GridBagConstraints.HORIZONTAL;
+            c.fill = GridBagConstraints.BOTH;
+            c.weightx = 1.0;
+            c.weighty = 1.0;
+            c.gridwidth = 2;
             add(chatScroll, c);
-            c.anchor = GridBagConstraints.WEST;
+            c.gridwidth = 1;
+            c.anchor = GridBagConstraints.CENTER;
             c.gridy++;
+            c.weightx = 0;
+            c.weighty = 0;
             add(chatMsg = new JTextField(10), c);
             c.gridx++;
             add(chatSend = new JButton("Send"), c);
+
+            chatSend.addActionListener(e -> {
+                try {
+                    sendMessage(new DrawCommand(DrawCommand.CommandType.CHAT, userName, chatMsg.getText()));
+                    addMessage(chatConversation, chatMsg.getText(), true);
+                } catch (IOException ex) {
+                    System.err.println("[Server] Error: " + ex.getMessage());
+                    throw new RuntimeException(ex);
+                }
+            });
         }
 
+        public JTextPane getChatConversation() {
+            return chatConversation;
+        }
+
+    }
+
+    public void addMessage(JTextPane chat, String message, Boolean isRightAligned) {
+        StyledDocument doc = chat.getStyledDocument();
+        SimpleAttributeSet attrs = new SimpleAttributeSet();
+
+        // Set alignment
+        StyleConstants.setAlignment(attrs, isRightAligned ? StyleConstants.ALIGN_RIGHT : StyleConstants.ALIGN_LEFT);
+        doc.setParagraphAttributes(doc.getLength(), 1, attrs, false);
+
+        // Append message
+        try {
+            doc.insertString(doc.getLength(), message + "\n", null);
+        } catch (BadLocationException e) {
+            e.printStackTrace();
+        }
+        //message.setText(message);
+        //chatMsg.setCaretPosition(0);
     }
 
     public static void main(String[] args) {

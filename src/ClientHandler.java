@@ -29,7 +29,7 @@ public class ClientHandler implements Runnable {
             } else {
                 System.out.println("[Server] " + drawCommand.getUsername() + " connected.");
                 sendCommand(new DrawCommand(DrawCommand.CommandType.CLEAR));
-                
+                sendCommand(new DrawCommand(DrawCommand.CommandType.CHAT, drawCommand.getUsername(), "Welcome to the chat."));
 
                 DrawCommand incoming;
                 while ((incoming = (DrawCommand) in.readObject()) != null) {
@@ -41,6 +41,7 @@ public class ClientHandler implements Runnable {
                         case CLEAR -> {System.out.println("[Server] Client says CLEAR");}
                         case SHAPE -> {System.out.println("[Server] Client says SHAPE");}
                         case STROKE -> {System.out.println("[Server] Client says STROKE");}
+                        case CHAT -> {System.out.println("[Server] Client says CHAT");}
                         case BYE -> {
                             System.out.println("[Server] " + drawCommand.getUsername() + " requested disconnect.");
                         }
