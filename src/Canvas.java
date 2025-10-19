@@ -94,7 +94,8 @@ public class Canvas extends JPanel {
             case "Rectangle" -> new Rectangles(start, end, currentStrokeStyle, color);
             case "Oval" ->      new Ovals(start, end, currentStrokeStyle, color);
             case "Line" ->      new Lines(start, end, currentStrokeStyle, color);
-            default -> null;
+            case "Triangle" ->  new Triangles(start, end, currentStrokeStyle, color);
+            default ->          null;
         };
     }
 

@@ -91,147 +91,12 @@ public class JoinWhiteBoard {
     private JPanel createToolboxPanel() {
         JPanel toolpanel = new JPanel();
         toolpanel.setLayout(new BoxLayout(toolpanel, BoxLayout.Y_AXIS));
-        //toolpanel.setBorder(new TitledBorder("Tools"));
-
-        //JButton connectButton = getJButton();
-
-        JButton drawButton = new JButton("Draw Mode");
-        drawButton.addActionListener(e -> {
-            canvas.setDrawMode(true);
-            canvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
-            //sendMessage("MODE,DRAW");
-        });
-
-        JButton eraserButton = new JButton("Eraser Mode");
-        eraserButton.addActionListener(e -> {
-            canvas.setDrawMode(false);
-            canvas.updateEraserCursor(canvas.getEraserLength());
-            //sendMessage("MODE,ERASE");
-        });
-
-        JButton clearButton = new JButton("Clear White Board");
-        clearButton.addActionListener(e -> {
-            canvas.clearWhiteBoard();
-            //sendMessage("CLEAR");
-        });
-
-        JLabel eraserLabel = new JLabel("Eraser Size:");
-        JSpinner eraserSizeSpinner = getEraserSizeSpinner();
-
-        JLabel shapeLabel = new JLabel("Shape:");
-        JComboBox<String> shapeSelector = new JComboBox<>(
-                new String[]{"Free Draw", "Rectangle", "Oval", "Line", "Text"}
-        );
-
-        //Draw text inserter
-        JTextField textField = new JTextField();
-        textField.setMaximumSize(new Dimension(150, 25));
-        textField.addActionListener(e -> canvas.setTextToAdd(textField.getText()));
-        JSpinner fontSizeSpinner = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
-        fontSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, fontSizeSpinner.getPreferredSize().height));
-        fontSizeSpinner.addChangeListener(e -> canvas.setStrokeWidth((int) fontSizeSpinner.getValue()));
-        fontSizeSpinner.addChangeListener(e -> canvas.setFontSize((int) fontSizeSpinner.getValue()));
-
-        shapeSelector.addActionListener(e -> {
-            String shape = (String) shapeSelector.getSelectedItem();
-            canvas.setSelectedShape(shape);
-            //sendMessage("SHAPE," + shape);
-        });
-
-        JLabel colorLabel = new JLabel("Colour:");
-        JComboBox<String> colorSelector = getStringJComboBox();
-
-        JLabel strokeLabel = new JLabel("Stroke Size:");
-        JSpinner strokeSizeSpinner = getStrokeSizeSpinner();
 
         toolpanel.add(new ConnectionPanel());
-        //toolpanel.add(connectButton);
-        //toolpanel.add(Box.createVerticalStrut(10));
-        toolpanel.add(drawButton);
-        toolpanel.add(eraserButton);
-        toolpanel.add(clearButton);
-        //toolpanel.add(Box.createVerticalStrut(10));
-        toolpanel.add(shapeLabel);
-        toolpanel.add(shapeSelector);
-        //toolpanel.add(Box.createVerticalStrut(10));
-        toolpanel.add(colorLabel);
-        toolpanel.add(colorSelector);
-        //toolpanel.add(Box.createVerticalStrut(10));
-        toolpanel.add(strokeLabel);
-        toolpanel.add(strokeSizeSpinner);
-
-        toolpanel.add(eraserLabel);
-        toolpanel.add(Box.createVerticalStrut(10));
-        toolpanel.add(eraserSizeSpinner);
-        toolpanel.add(new JLabel("Text:"));
-        toolpanel.add(textField);
-        toolpanel.add(new JLabel("Font Size:"));
-        toolpanel.add(fontSizeSpinner);
+        toolpanel.add(new DrawPanel());
+        toolpanel.add(new ChatPanel());
 
         return toolpanel;
-    }
-
-    private static JSpinner getEraserSizeSpinner() {
-        JSpinner eraserSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
-        eraserSizeSpinner.setPreferredSize(new Dimension(70, 26));
-        eraserSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, eraserSizeSpinner.getPreferredSize().height));
-        eraserSizeSpinner.addChangeListener(e -> {
-            canvas.setEraserLength((int) eraserSizeSpinner.getValue());
-            if(!canvas.getDrawMode()){
-                canvas.updateEraserCursor(canvas.getEraserLength());
-            }
-        });
-        return eraserSizeSpinner;
-    }
-
-    private static JSpinner getStrokeSizeSpinner() {
-        JSpinner strokeSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
-        // Prevent the spinner from growing in height
-        strokeSizeSpinner.setPreferredSize(new Dimension(70, 26));
-        strokeSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, strokeSizeSpinner.getPreferredSize().height));
-        strokeSizeSpinner.addChangeListener(e -> {
-            int value = (int) strokeSizeSpinner.getValue();
-            canvas.setStrokeWidth(value);
-            //sendMessage("STROKE," + value);
-        });
-        return strokeSizeSpinner;
-    }
-
-    private JButton getJButton() {
-        JButton connectButton = new JButton("Connect to Server");
-        connectButton.addActionListener(e -> {
-            if (!isConnected) {
-                try {
-                    connectToServer(serverIP, serverPort);
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(null, "Invalid port number");
-                }
-            } else {
-                JOptionPane.showMessageDialog(null, "Already connected to a server.");
-            }
-        });
-        return connectButton;
-    }
-
-    private static JComboBox<String> getStringJComboBox() {
-        JComboBox<String> colorSelector = new JComboBox<>(
-                new String[]{"Black", "Red", "Green", "Blue", "Orange", "Magenta"}
-        );
-
-        colorSelector.addActionListener(e -> {
-            String selected = (String) colorSelector.getSelectedItem();
-            switch (selected) {
-                case "Red" -> canvas.setShapeColor(Color.RED);
-                case "Green" -> canvas.setShapeColor(Color.GREEN);
-                case "Blue" -> canvas.setShapeColor(Color.BLUE);
-                case "Orange" -> canvas.setShapeColor(Color.ORANGE);
-                case "Magenta" -> canvas.setShapeColor(Color.MAGENTA);
-                case null -> {}
-                default -> canvas.setShapeColor(Color.BLACK);
-            }
-        });
-
-        return colorSelector;
     }
 
     public class ConnectionPanel extends JPanel {
@@ -255,13 +120,13 @@ public class JoinWhiteBoard {
             c.gridy = 0;
             c.fill = GridBagConstraints.HORIZONTAL;
             c.weightx = 1.0;
-            add(hostIP = new JTextField(10),c);
+            add(hostIP = new JTextField(10), c);
             hostIP.setText(serverIP);
             c.gridy++;
-            add(hostPort = new JTextField(5 ),c);
+            add(hostPort = new JTextField(5), c);
             hostPort.setText(String.valueOf(serverPort));
             c.gridy++;
-            add(connectButton = new JButton("Connect"),c);
+            add(connectButton = new JButton("Connect"), c);
 
             connectButton.addActionListener(e -> {
                 if (!isConnected) {
@@ -283,7 +148,7 @@ public class JoinWhiteBoard {
             });
 
             hostIP.addActionListener(e -> {
-                serverIP =  hostIP.getText();
+                serverIP = hostIP.getText();
             });
 
             hostPort.addActionListener(e -> {
@@ -298,57 +163,189 @@ public class JoinWhiteBoard {
         public void setDisconnect() {
             connectButton.setText(" Connect ");
         }
+    }
 
-        public class DrawPanel extends JPanel {
-            //private JButton connectButton;
-            //private JLabel hostLabel, portLabel;
-            //private JTextField hostIP, hostPort;
+    public class DrawPanel extends JPanel {
+        private JComboBox shapeSelector = new JComboBox<>(
+                new String[]{"Triangle", "Rectangle", "Oval", "Line"});
+        private JButton clearButton;
+        private JTextField drawText;
+        private JLabel colorLabel;
+        private JComboBox<String> colorSelector = new JComboBox<>(
+                new String[]{"Black", "Red", "Green", "Blue", "Orange", "Magenta"});
+        private JSpinner strokeSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
+        private JSpinner eraserSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
+        private JSpinner fontSizeSpinner = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
 
-            public DrawPanel() {
-                setLayout(new GridBagLayout());
-                setBorder(new CompoundBorder(new TitledBorder("Draw"), new EmptyBorder(12, 0, 0, 0)));
-                GridBagConstraints c = new GridBagConstraints();
+        public DrawPanel() {
+            setLayout(new GridBagLayout());
+            setBorder(new CompoundBorder(new TitledBorder("Draw"), new EmptyBorder(12, 0, 0, 0)));
+            GridBagConstraints c = new GridBagConstraints();
 
-                c.gridx = 0;
-                c.gridy = 0;
-                c.anchor = GridBagConstraints.WEST;
-                add(new JLabel("Server IP:"), c);
-                c.gridy++;
-                add(new JLabel("Server Port:"), c);
+            JRadioButton modeDraw = new JRadioButton("Draw");
+            ButtonGroup modeGroup = new ButtonGroup();
+            modeGroup.add(modeDraw);
+            JRadioButton modeErase = new JRadioButton("Erase");
+            modeGroup.add(modeErase);
+            modeDraw.setSelected(true);
 
-                c.gridx++;
-                c.gridy = 0;
-                c.fill = GridBagConstraints.HORIZONTAL;
-                c.weightx = 1.0;
-                add(hostIP = new JTextField(10), c);
-                hostIP.setText(serverIP);
-                c.gridy++;
-                add(hostPort = new JTextField(5), c);
-                hostPort.setText(String.valueOf(serverPort));
-                c.gridy++;
-                add(connectButton = new JButton("Connect"), c);
+            JRadioButton formFree = new JRadioButton("Free");
+            ButtonGroup formGroup = new ButtonGroup();
+            formGroup.add(formFree);
+            JRadioButton formShape = new JRadioButton("Shape");
+            formGroup.add(formShape);
+            JRadioButton formText = new JRadioButton("Text");
+            formGroup.add(formText);
+            formFree.setSelected(true);
 
-                connectButton.addActionListener(e -> {
-                    if (!isConnected) {
-                        // Connect logic
-                        try {
-                            connectToServer(serverIP, serverPort);
-                        } catch (NumberFormatException ex) {
-                            JOptionPane.showMessageDialog(null, "Invalid port number");
-                        }
-                        isConnected = true;
-                        setConnect();
-                    } else {
-                        // Disconnect logic
-                        //JOptionPane.showMessageDialog(null, "Already connected to a server.");
-                        disconnectFromServer();
-                        isConnected = false;
-                        setDisconnect();
-                    }
-                });
+            c.gridx = 0;
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.WEST;
+            add(new JLabel("Mode:"), c);
+            c.gridy++;
+            add(modeDraw, c);
+            c.gridx++;
+            add(modeErase, c);
+            c.gridy++;
+            c.gridx--;
+            add(new JLabel("Form:"), c);
+            c.gridy++;
+            add(formFree, c);
+            c.gridy++;
+            add(formShape, c);
+            c.gridx++;
+            add(shapeSelector, c);
+            c.gridy++;
+            c.gridx--;
+            add(formText, c);
+            c.gridx++;
+            add(drawText = new JTextField(10), c);
+            c.gridx--;
+            c.gridy++;
+            add(colorLabel = new JLabel("Colour:"), c);
+            c.gridx++;
+            add(colorSelector,c);
+            c.gridy++;
+            c.gridx--;
+            strokeSizeSpinner.setPreferredSize(new Dimension(70, 26));
+            strokeSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, strokeSizeSpinner.getPreferredSize().height));
 
-            }
+            add(new JLabel("Stroke Size:"), c);
+            c.gridx++;
+            add(strokeSizeSpinner, c);
+            c.gridy++;
+            c.gridx--;
+            add(new JLabel("Eraser Size:"), c);
+            c.gridx++;
+            eraserSizeSpinner.setPreferredSize(new Dimension(70, 26));
+            eraserSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, eraserSizeSpinner.getPreferredSize().height));
+            add(eraserSizeSpinner, c);
+
+            c.gridy++;
+            c.gridx--;
+            add(new JLabel("Font Size:"), c);
+            c.gridx++;
+            fontSizeSpinner.setPreferredSize(new Dimension(70, 26));
+            fontSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, fontSizeSpinner.getPreferredSize().height));
+            fontSizeSpinner.addChangeListener(e -> canvas.setFontSize((int) fontSizeSpinner.getValue()));
+            add(fontSizeSpinner, c);
+            c.gridy++;
+            c.gridx--;
+            add(clearButton = new JButton("Clear All"), c);
+
+            colorSelector.addActionListener(e -> {
+                String selected = (String) colorSelector.getSelectedItem();
+                switch (selected) {
+                    case "Red" -> canvas.setShapeColor(Color.RED);
+                    case "Green" -> canvas.setShapeColor(Color.GREEN);
+                    case "Blue" -> canvas.setShapeColor(Color.BLUE);
+                    case "Orange" -> canvas.setShapeColor(Color.ORANGE);
+                    case "Magenta" -> canvas.setShapeColor(Color.MAGENTA);
+                    case null -> {}
+                    default -> canvas.setShapeColor(Color.BLACK);
+                }
+            });
+
+            drawText.addActionListener(e -> {
+                canvas.setTextToAdd(drawText.getText());
+                formText.setSelected(true);
+                canvas.setSelectedShape("Text");
+            });
+
+            shapeSelector.addActionListener(e -> {
+                String shape = (String) shapeSelector.getSelectedItem();
+                canvas.setSelectedShape(shape);
+                formShape.setSelected(true);
+            });
+
+            eraserSizeSpinner.addChangeListener(e -> {
+                canvas.setEraserLength((int) eraserSizeSpinner.getValue());
+                if(!canvas.getDrawMode()){
+                    canvas.updateEraserCursor(canvas.getEraserLength());
+                }
+            });
+
+            formShape.addActionListener(e -> {
+                String shape = (String) shapeSelector.getSelectedItem();
+                canvas.setSelectedShape(shape);
+             });
+
+            strokeSizeSpinner.addChangeListener(e -> {
+                int value = (int) strokeSizeSpinner.getValue();
+                canvas.setStrokeWidth(value);
+            });
+
+            formText.addActionListener(e -> {
+                canvas.setSelectedShape("Text");
+            });
+
+            formFree.addActionListener(e -> {
+                canvas.setSelectedShape("Free Draw");
+            });
+
+            modeDraw.addActionListener(e -> {
+                canvas.setDrawMode(true);
+                canvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+            });
+
+            modeErase.addActionListener(e -> {
+                canvas.setDrawMode(false);
+                canvas.updateEraserCursor(canvas.getEraserLength());
+            });
+
+            clearButton.addActionListener(e -> {
+                canvas.clearWhiteBoard();
+            });
+          }
+    }
+
+    public class ChatPanel extends JPanel {
+        private JTextArea chatConversation;
+        private JTextField chatMsg;
+        private JButton chatSend;
+        private JScrollPane chatScroll;
+
+        public ChatPanel() {
+            setLayout(new GridBagLayout());
+            setBorder(new CompoundBorder(new TitledBorder("Chat"), new EmptyBorder(12, 0, 0, 0)));
+            GridBagConstraints c = new GridBagConstraints();
+
+            c.gridx = 0;
+            c.gridy = 0;
+            c.anchor = GridBagConstraints.WEST;
+            chatConversation = new JTextArea(10, 18);
+            chatConversation.setEditable(false);
+            chatScroll = new JScrollPane(chatConversation);
+            chatScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+            c.fill = GridBagConstraints.HORIZONTAL;
+            add(chatScroll, c);
+            c.anchor = GridBagConstraints.WEST;
+            c.gridy++;
+            add(chatMsg = new JTextField(10), c);
+            c.gridx++;
+            add(chatSend = new JButton("Send"), c);
         }
+
     }
 
     public static void main(String[] args) {
