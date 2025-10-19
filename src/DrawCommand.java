@@ -19,12 +19,13 @@ public class DrawCommand implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    public enum CommandType { STROKE, SHAPE, TEXT, CLEAR, HELLO, BYE }
+    public enum CommandType { STROKE, SHAPE, TEXT, CLEAR, HELLO, BYE, CHAT }
 
     private final CommandType type;
     private final StrokeData stroke;  // for freehand drawings
     private final Shapes shape;       // for shapes (Rectangles, Ovals, etc.)
     private final DrawText textData;  // for text commands
+    private final String chatText;
 
     // Optional: who sent the command
     private final String username;
@@ -36,6 +37,7 @@ public class DrawCommand implements Serializable {
         this.shape = null;
         this.textData = null;
         this.username = null;
+        this.chatText = null;
     }
 
     /** Constructor for shape drawing */
@@ -45,6 +47,7 @@ public class DrawCommand implements Serializable {
         this.shape = shape;
         this.textData = null;
         this.username = null;
+        this.chatText = null;
     }
 
     /** Constructor for adding text */
@@ -54,6 +57,7 @@ public class DrawCommand implements Serializable {
         this.shape = null;
         this.textData = textData;
         this.username = null;
+        this.chatText = null;
     }
 
     /** Constructor for clearing the board */
@@ -68,14 +72,27 @@ public class DrawCommand implements Serializable {
         this.shape = null;
         this.textData = null;
         this.username = null;
+        this.chatText = null;
     }
 
+    // Used for HELLO message
     public DrawCommand(CommandType type, String username) {
         this.type = type;
         this.username = username;
         this.stroke = null;
         this.shape = null;
         this.textData = null;
+        this.chatText = null;
+    }
+
+    // Used for chat messages
+    public DrawCommand(CommandType type, String username, String chatText) {
+        this.type = type;
+        this.username = username;
+        this.stroke = null;
+        this.shape = null;
+        this.textData = null;
+        this.chatText = chatText;
     }
 
     /** Full constructor (for advanced usage if needed) */
@@ -85,6 +102,7 @@ public class DrawCommand implements Serializable {
         this.shape = shape;
         this.textData = textData;
         this.username = username;
+        this.chatText = null;
     }
 
     // Getters
