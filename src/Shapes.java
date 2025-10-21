@@ -1,22 +1,25 @@
 import java.awt.*;
+import java.io.Serializable;
 
-public abstract class Shapes {
+public abstract class Shapes implements Serializable {
     private Point startPoint = new Point();
     private Point endPoint = new Point();
-    private Stroke strokeWidth;
+    private float strokeWidth;
     private Color color;
+    private boolean intermediate;
 
     public Shapes() {
-        this.strokeWidth = new BasicStroke(5, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+        this.strokeWidth = 5;
         color = Color.BLACK;
 
     }
 
-    public Shapes(Point a, Point b, Stroke s, Color c) {
+    public Shapes(Point a, Point b, float s, Color c, boolean intermediate) {
         this.startPoint = a;
         this.endPoint = b;
         this.strokeWidth = s;
         this.color = c;
+        this.intermediate = intermediate;
     }
 
     public abstract void draw(Graphics2D g);
@@ -37,8 +40,16 @@ public abstract class Shapes {
         this.endPoint = endPoint;
     }
 
-    public Stroke getStrokeWidth() {
+    public float getStrokeWidth() {
         return strokeWidth;
+    }
+
+    public boolean getIntermediate() {
+        return intermediate;
+    }
+
+    public void setIntermediate(boolean intermediate) {
+        this.intermediate = intermediate;
     }
 }
 

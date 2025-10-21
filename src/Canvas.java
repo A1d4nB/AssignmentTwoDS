@@ -7,82 +7,105 @@ import java.util.List;
 import java.awt.image.BufferedImage;
 
 public class Canvas extends JPanel {
-    private List<StrokeData> strokes;       // Stores the freehand stroke data
     private StrokeData currentStroke;       // Stores the points of the current freehand stroke
-    private List<Shapes> shapeList;         // Stores the shapes
     private Shapes currentShape;            // Holds the current shape
-    private boolean drawMode = true;        // true = free draw, false = eraser
-    private int eraserLength = 5;           // Set default eraser length
     private float strokeWidth = 5;          // Set default stroke width
-    private List<DrawText> strings;         // Stores the text data
-    private final String font = "Ariel";
+    private BufferedImage buffer;
+    private Graphics2D bufferGraphics;
+    private final String font = "Arial";
     private String textToAdd = "";
     private int textFontSize = 12;
-
-    private Stroke currentStrokeStyle = new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private JoinWhiteBoard joinWhiteBoard;
+    private long lastSent = 0;
+    private float currentStrokeStyle = 5;
 
     private String selectedShape = "Free Draw"; // can be "Free Draw", "Rectangle", "Oval", "Line", etc.
     private Color shapeColor = Color.BLACK; // Set default colour
 
-    public Canvas() {
+    public Canvas(JoinWhiteBoard jb) {
+        this.joinWhiteBoard = jb;
+        canvasSetup();
+    }
+
+    public void canvasSetup() {
         setBackground(Color.WHITE);
 
-        strokes = new ArrayList<>();
-        shapeList = new ArrayList<>();
-        strings = new ArrayList<>();
-
         MouseAdapter handler = new MouseAdapter() {
-        // Capture specific mouse events to start, continue, or end a stroke or shape
             @Override
             public void mousePressed(MouseEvent e) {
-                if ("Text".equals(selectedShape) && drawMode) {
+                if ("Text".equals(selectedShape)) {
                     if (textToAdd != null && !textToAdd.isEmpty()) {
-                        addText(textToAdd, e.getPoint(), textFontSize, shapeColor);
+                        DrawText dt = new DrawText(textToAdd, e.getPoint(), textFontSize, shapeColor);
+                        joinWhiteBoard.addString(dt); // Send to others
+                        drawTextOnBuffer(dt);       // Draw locally
+                        repaint();
                     }
-                } else if (!selectedShape.equals("Free Draw") && drawMode) {
+                } else if (!selectedShape.equals("Free Draw")) {
                     // Shape mode
                     Point startPoint = e.getPoint();
                     currentShape = createShape(selectedShape, startPoint, startPoint, shapeColor);
-                } else if (drawMode) {
-                    // Free draw mode
-                    currentStroke = new StrokeData(shapeColor, strokeWidth);
-                    currentStroke.addPoint(e.getPoint());
-                    strokes.add(currentStroke);
+                    currentShape.setIntermediate(true);
+                    joinWhiteBoard.addShape(currentShape); // Send intermediate
+                    repaint(); // Repaint to show intermediate
                 } else {
-                    // Eraser mode
-                    eraseAt(e.getPoint());
+                    // Free draw mode (or Erase mode)
+                    currentStroke = new StrokeData(shapeColor, strokeWidth, true);
+                    currentStroke.addPoint(e.getPoint());
+                    joinWhiteBoard.addStroke(currentStroke); // Send intermediate
+                    drawStrokeOnBuffer(currentStroke);       // Draw locally
+                    repaint();
                 }
-                repaint();
             }
 
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (!selectedShape.equals("Free Draw") && drawMode) {
+                if (!selectedShape.equals("Free Draw")) {
                     if (currentShape != null) {
                         currentShape.setEndPoint(e.getPoint());
-                    }
-                } else if (drawMode) {
-                    if (currentStroke != null) {
-                        currentStroke.addPoint(e.getPoint());
+                        currentShape.setIntermediate(true);
+
+                        long now = System.currentTimeMillis();
+                        if (now - lastSent > 20) {
+                            joinWhiteBoard.addShape(currentShape);
+                            lastSent = now;
+                        }
+                        repaint(); // Repaint to show intermediate
                     }
                 } else {
-                    eraseAt(e.getPoint());
+                    if (currentStroke != null) {
+                        currentStroke.addPoint(e.getPoint());
+                        joinWhiteBoard.addStroke(currentStroke); // Send intermediate
+                        drawStrokeOnBuffer(currentStroke);       // Draw locally
+                        repaint();
+                    }
                 }
-                repaint();
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                if (!selectedShape.equals("Free Draw") && drawMode) {
+                if (!selectedShape.equals("Free Draw")) {
                     if (currentShape != null) {
                         currentShape.setEndPoint(e.getPoint());
-                        shapeList.add(currentShape);
+                        currentShape.setIntermediate(false);
+                        joinWhiteBoard.addShape(currentShape); // Send final
+                        // The final shape is drawn by addRemoteShape
+                        drawShapeOnBuffer(currentShape); // Draw final shape locally
                         currentShape = null;
+                        repaint();
+
+                    }
+                } else {
+                    if (currentStroke != null) {
+                        currentStroke.setIntermediate(false);
+                        joinWhiteBoard.addStroke(currentStroke); // Send final
+                        // The final stroke is drawn by addRemoteStroke
+                        currentStroke = null;
                     }
                 }
                 repaint();
             }
         };
+
 
         addMouseListener(handler);
         addMouseMotionListener(handler);
@@ -91,145 +114,147 @@ public class Canvas extends JPanel {
     private Shapes createShape(String type, Point start, Point end, Color color) {
 
         return switch (type) {
-            case "Rectangle" -> new Rectangles(start, end, currentStrokeStyle, color);
-            case "Oval" ->      new Ovals(start, end, currentStrokeStyle, color);
-            case "Line" ->      new Lines(start, end, currentStrokeStyle, color);
-            case "Triangle" ->  new Triangles(start, end, currentStrokeStyle, color);
+            case "Rectangle" -> new Rectangles(start, end, currentStrokeStyle, color, false);
+            case "Oval" ->      new Ovals(start, end, currentStrokeStyle, color, false);
+            case "Line" ->      new Lines(start, end, currentStrokeStyle, color, false);
+            case "Triangle" ->  new Triangles(start, end, currentStrokeStyle, color, false);
             default ->          null;
         };
     }
 
-    private void eraseAt(Point p) {
-        List<StrokeData> newStrokes = new ArrayList<>();
-
-        for (StrokeData stroke : strokes) {
-            StrokeData currentSegment = new StrokeData(stroke.getColor(), stroke.getWidth());
-            for (Point point : stroke.getPoints()) {
-                if (point.distance(p) > eraserLength) {
-                    currentSegment.addPoint(point);
-                } else {
-                    if (!currentSegment.isEmpty()) {
-                        newStrokes.add(currentSegment);
-                        currentSegment = new StrokeData(stroke.getColor(), stroke.getWidth());
-                    }
-                }
-            }
-            if (!currentSegment.isEmpty()) newStrokes.add(currentSegment);
-        }
-        strokes = newStrokes;
-
-        List<Shapes> remainingShapes = new ArrayList<>();
-        for (Shapes shape : shapeList) {
-            if (!isPointNearShape(p, shape)) {
-                remainingShapes.add(shape);
-            }
-        }
-        shapeList = remainingShapes;
-
-        Rectangle eraserBounds = new Rectangle(p.x - eraserLength, p.y - eraserLength, eraserLength * 2, eraserLength * 2);
-        List<DrawText> remainingTexts = new ArrayList<>();
-        for (DrawText text : strings) {
-            Font textFont = new Font(font, Font.PLAIN, text.fontSize());
-            FontMetrics fm = getFontMetrics(textFont);
-            Rectangle textBounds = new Rectangle(text.pos().x, text.pos().y - fm.getAscent(), fm.stringWidth(text.text()), fm.getAscent() + fm.getDescent());
-
-            if(!textBounds.intersects(eraserBounds)){
-                remainingTexts.add(text);
-            }
-        }
-        strings = remainingTexts;
-    }
-
-    private boolean isPointNearShape(Point p, Shapes s) {
-        if (s instanceof ClosedShapes cs) {
-            Rectangle bounds = new Rectangle(
-                    cs.getTopLeftX(), cs.getTopLeftY(), cs.getWidth(), cs.getHeight());
-            return bounds.contains(p.x, p.y) ||
-                    p.distance(bounds.getCenterX(), bounds.getCenterY()) < eraserLength;
-        } else {
-
-            Point start = s.getStartPoint();
-            Point end = s.getEndPoint();
-            double dist = pointToSegmentDistance(p, start, end);
-            return dist <= eraserLength;
-        }
-    }
-
-    private double pointToSegmentDistance(Point p, Point a, Point b) {
-        double px = p.x, py = p.y;
-        double ax = a.x, ay = a.y;
-        double bx = b.x, by = b.y;
-
-        double dx = bx - ax;
-        double dy = by - ay;
-
-        if (dx == 0 && dy == 0) return p.distance(a);
-
-        double t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
-        t = Math.max(0, Math.min(1, t));
-
-        double projX = ax + t * dx;
-        double projY = ay + t * dy;
-
-        return Point.distance(px, py, projX, projY);
-    }
-
     protected void clearWhiteBoard() {
-        strokes = new ArrayList<>();
-        shapeList = new ArrayList<>();
-        strings.clear();
+        joinWhiteBoard.clearStrokes();
+        joinWhiteBoard.clearShapes();
+        joinWhiteBoard.clearStrings();
+        joinWhiteBoard.clearChats();
+
+        if (bufferGraphics != null) {
+            bufferGraphics.setColor(Color.WHITE);
+            bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
+        }
+
         repaint();
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+
+        // --- ADD THIS: Buffer creation logic ---
+        // If buffer doesn't exist, or window was resized, create a new one
+        if (buffer == null || buffer.getWidth() != getWidth() || buffer.getHeight() != getHeight()) {
+            buffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            bufferGraphics = buffer.createGraphics();
+
+            // IMPORTANT: Clear the new buffer to white
+            bufferGraphics.setColor(Color.WHITE);
+            bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
+
+            // Redraw everything from the lists onto the new buffer
+            redrawAllOnBuffer();
+        }
+        // --- END ADD ---
+
+        // Draw the entire buffer to the screen in one go
+        g.drawImage(buffer, 0, 0, null);
+
+        // Draw intermediate shapes (like the rubber band) on top
         Graphics2D g2d = (Graphics2D) g;
-
-        // Draw freehand strokes
-        for (StrokeData points : strokes) {
-            g2d.setColor(points.getColor());
-            g2d.setStroke(new BasicStroke(points.getWidth(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
-            if (points.size() > 1) {
-                for (int i = 0; i < points.size() - 1; i++) {
-                    Point p1 = points.getPoint(i);
-                    Point p2 = points.getPoint(i + 1);
-                    g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
-                }
-            } else if (points.size() == 1) {
-                Point p = points.getStartPoint();
-                g2d.fillOval(   p.x - (int)strokeWidth/2,
-                                p.y - (int)strokeWidth/2,
-                                (int)strokeWidth,
-                                (int)strokeWidth);
-            }
-        }
-
-        //Draw text
-        for(DrawText dt: strings){
-            g2d.setColor(dt.color());
-            g2d.setFont(new Font(font, Font.PLAIN, dt.fontSize()));
-            g2d.drawString(dt.text(), dt.pos().x, dt.pos().y);
-
-        }
-
-        // Draw shapes
-        for (Shapes s : shapeList) {
-            s.draw(g2d);
-        }
-
-        // Draw current shape (preview)
         if (currentShape != null) {
             currentShape.draw(g2d);
         }
+        for (Shapes s : joinWhiteBoard.getIntermediateShapes()) {
+            s.draw(g2d);
+        }
     }
 
+
+    private void redrawAllOnBuffer() {
+        if (bufferGraphics == null) return;
+
+        // 1. Clear buffer to white
+        bufferGraphics.setColor(Color.WHITE);
+        bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
+
+        // --- CHANGE DRAW ORDER ---
+
+        // 2. Draw all permanent shapes FIRST
+        for (Shapes shape : joinWhiteBoard.getShapeList()) {
+            drawShapeOnBuffer(shape);
+        }
+
+        // 3. Draw all text SECOND
+        for (DrawText dt : joinWhiteBoard.getStrings()) {
+            drawTextOnBuffer(dt);
+        }
+
+        // 4. Draw all strokes (including erasers) LAST
+        for (StrokeData stroke : joinWhiteBoard.getStrokes()) {
+            drawStrokeOnBuffer(stroke);
+        }
+    }
+
+
+    public void drawStrokeOnBuffer(StrokeData stroke) {
+        if (bufferGraphics == null || stroke == null) return;
+
+        bufferGraphics.setColor(stroke.getColor());
+        bufferGraphics.setStroke(new BasicStroke(stroke.getWidth(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        if (stroke.size() > 1) {
+            Point p1 = stroke.getPoint(0);
+            for (int i = 1; i < stroke.size(); i++) {
+                Point p2 = stroke.getPoint(i);
+                bufferGraphics.drawLine(p1.x, p1.y, p2.x, p2.y);
+                p1 = p2; // Move to the next point
+            }
+        } else if (stroke.size() == 1) {
+            Point p = stroke.getStartPoint();
+            int w = (int) stroke.getWidth();
+            bufferGraphics.fillOval(p.x - w/2, p.y - w/2, w, w);
+        }
+    }
+
+    public void drawShapeOnBuffer(Shapes shape) {
+        if (bufferGraphics == null || shape == null) return;
+        shape.draw(bufferGraphics);
+    }
+
+    public void drawTextOnBuffer(DrawText dt) {
+        if (bufferGraphics == null || dt == null) return;
+        bufferGraphics.setColor(dt.getColor());
+        bufferGraphics.setFont(new Font(font, Font.PLAIN, dt.fontSize()));
+        bufferGraphics.drawString(dt.text(), dt.pos().x, dt.pos().y);
+    }
+
+
+
     protected void addText(String text, Point p, int fontSize, Color color) {
-        if(text == null || text.isEmpty() || !drawMode) return;
-        DrawText currentText = new DrawText(text, p, fontSize, shapeColor);
-        strings.add(currentText);
+        if(text == null || text.isEmpty()) return;
+        //DrawText currentText = new DrawText(text, p, fontSize, shapeColor);
+        joinWhiteBoard.addString(new DrawText(text, p, fontSize, color));
         repaint();
+    }
+
+    public void setSelectedShape(String shape) {
+        this.selectedShape = shape;
+    }
+
+    public void setShapeColor(Color c) {
+        this.shapeColor = c;
+    }
+
+    public void setStrokeWidth(float strokeWidth) {
+        this.strokeWidth = strokeWidth;
+        this.currentStrokeStyle = strokeWidth;
+    }
+
+    public void setTextToAdd(String text) {
+        this.textToAdd = text;
+    }
+
+    public void setFontSize(int fontSize) {
+        this.textFontSize = fontSize;
     }
 
     protected void updateEraserCursor(int eraserSize) {
@@ -250,96 +275,15 @@ public class Canvas extends JPanel {
         this.setCursor(customCursor);
     }
 
-    public void setDrawMode(boolean dm) {
-        this.drawMode = dm;
-    }
-
-    public void setSelectedShape(String shape) {
-        this.selectedShape = shape;
-    }
-
-    public void setShapeColor(Color c) {
-        this.shapeColor = c;
-    }
-
-    public void setStrokeWidth(Stroke s) {
-        if (s == null) return;
-        this.currentStrokeStyle = s;
-        if (s instanceof BasicStroke bs) {
-            this.strokeWidth = bs.getLineWidth();
-        }
-    }
-
-    public void setStrokeWidth(float strokeWidth) {
-        this.strokeWidth = strokeWidth;
-        this.currentStrokeStyle = new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-    }
-
-    public int getEraserLength() {
-        return eraserLength;
-    }
-
-    public void setEraserLength(int eraserLength) {
-        this.eraserLength = eraserLength;
-    }
-
-    public void setTextToAdd(String text) {
-        this.textToAdd = text;
-    }
-
-    public void setFontSize(int fontSize) {
-        this.textFontSize = fontSize;
-    }
-
-    public boolean getDrawMode() {
-        return drawMode;
-    }
-
-    // Called when a client sends a new stroke to the server
-    public synchronized void addRemoteStroke(StrokeData stroke) {
-        SwingUtilities.invokeLater(() -> {
-            strokes.add(stroke);
-            repaint();
-        });
-    }
-
-    // Called when a client sends a new shape
-    public synchronized void addRemoteShape(Shapes shape) {
-        SwingUtilities.invokeLater(() -> {
-            shapeList.add(shape);
-            repaint();
-        });
-    }
-
-    // Called when a client adds text
-    public synchronized void addRemoteText(DrawText text) {
-        SwingUtilities.invokeLater(() -> {
-            strings.add(text);
-            repaint();
-        });
-    }
-
-    // Called when the whiteboard is cleared (e.g., from server broadcast)
-    public synchronized void clearRemote() {
-        SwingUtilities.invokeLater(() -> {
-            strokes.clear();
-            shapeList.clear();
-            strings.clear();
-            repaint();
-        });
-    }
-
     public synchronized List<StrokeData> getStrokesCopy() {
-        return new ArrayList<>(strokes);
+        return new ArrayList<>(joinWhiteBoard.getStrokes());
     }
 
     public synchronized List<Shapes> getShapesCopy() {
-        return new ArrayList<>(shapeList);
+        return new ArrayList<>(joinWhiteBoard.getShapeList());
     }
 
     public synchronized List<DrawText> getTextsCopy() {
-        return new ArrayList<>(strings);
+        return new ArrayList<>(joinWhiteBoard.getStrings());
     }
-
-
 }

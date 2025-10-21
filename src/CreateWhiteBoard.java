@@ -1,38 +1,32 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-/**
- * CreateWhiteBoard
- * ----------------
- * Acts as the headless whiteboard server.
- * - Accepts client connections.
- * - Receives drawing commands via ClientHandler.
- * - Updates the shared Canvas (server-side state).
- * - Broadcasts updates to all connected clients.
- */
 public class CreateWhiteBoard {
 
     private final int port;
-    private final String managerUsername;
+    private String managerUsername;
     private final Canvas canvas;                      // Shared drawing surface
     private final List<ClientHandler> clients;        // Connected clients
     private ServerSocket serverSocket;                // Main server socket
     private boolean running = false;
 
+    private List<StrokeData> strokes    = new ArrayList<>();       // Stores the freehand stroke data
+    private List<Shapes> shapeList      = new ArrayList<>();       // Stores the shapes
+    private List<DrawText> strings      = new ArrayList<>();       // Stores the strings
+    private List<ChatData> chats        = new ArrayList<>();       // Stores the chats
+    private List<String> users          = new ArrayList<>();       // Stores the list of users connected
+    private final Map<String, ClientHandler> pendingClients;
+
     public CreateWhiteBoard(int port, String managerUsername) {
         this.port = port;
         this.managerUsername = managerUsername;
-        this.canvas = new Canvas();
+        this.canvas = null;
         this.clients = Collections.synchronizedList(new ArrayList<>());
+        this.pendingClients = Collections.synchronizedMap(new HashMap<>());
     }
 
-    /**
-     * Starts the headless server and begins accepting client connections.
-     */
     public void startServer() {
         try {
             serverSocket = new ServerSocket(port);
@@ -44,14 +38,9 @@ public class CreateWhiteBoard {
             // Loop, listening for incoming connections
             while (running) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("[Server] New client connection from " + clientSocket.getInetAddress() + ":" + clientSocket.getPort());
 
                 // Spawn handler thread to handle new connection
                 ClientHandler handler = new ClientHandler(clientSocket, this);
-                synchronized (clients) {
-                    clients.add(handler);
-                }
-
                 new Thread(handler).start();
             }
         } catch (IOException e) {
@@ -62,42 +51,37 @@ public class CreateWhiteBoard {
         }
     }
 
-    /**
-     * Called by a ClientHandler when it receives a drawing command.
-     * The command is applied to the shared canvas and broadcast to others.
-     */
-    public synchronized void handleDrawCommand(DrawCommand cmd, ClientHandler source) {
-        if (cmd == null) return;
-
-        // update the shared canvas depending on command type
-        switch (cmd.getType()) {
-            case STROKE -> canvas.addRemoteStroke(cmd.getStroke());
-            case SHAPE -> canvas.addRemoteShape(cmd.getShape());
-            case TEXT -> canvas.addRemoteText(cmd.getText());
-            case CLEAR -> canvas.clearRemote();
-            default -> System.err.println("[Server] Unknown or unexpected draw command: " + cmd);
-        }
-
-        // Broadcast to all other clients
-        broadcast(cmd, source);
-    }
-
-    /**
-     * Broadcast a message to all connected clients except the source.
-     */
     public void broadcast(DrawCommand cmd, ClientHandler exclude) {
         synchronized (clients) {
             for (ClientHandler c : clients) {
-                if (c != exclude) {
-                    c.sendCommand(cmd);
-                }
+                if (c != exclude) { c.sendCommand(cmd); }
             }
         }
     }
 
-    /**
-     * Removes a disconnected client from the active list.
-     */
+    public synchronized boolean sendToUser(DrawCommand cmd, String target) {
+        synchronized (clients) {
+            for (ClientHandler c : clients) {
+                if(c.getUsername() != null && c.getUsername().equals(target)) {
+                    try {
+                        c.sendCommand(cmd);
+                        return true;
+                    } catch (Exception e) {
+                        System.err.println("[Server] Failed to send private message: " + e.getMessage());
+                        return false;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public void addClient(ClientHandler client) {
+        synchronized (clients) {
+            clients.add(client);
+        }
+    }
+
     public void removeClient(ClientHandler client) {
         synchronized (clients) {
             clients.remove(client);
@@ -105,26 +89,18 @@ public class CreateWhiteBoard {
         System.out.println("[Server] Client disconnected. Active clients: " + clients.size());
     }
 
-    /**
-     * Sends the current whiteboard state to a new client that just joined.
-     */
-    public void sendCurrentState(ClientHandler client) {
-        synchronized (canvas) {
-            for (StrokeData s : canvas.getStrokesCopy()) {
-                client.sendCommand(new DrawCommand(s));
-            }
-            for (Shapes sh : canvas.getShapesCopy()) {
-                client.sendCommand(new DrawCommand(sh));
-            }
-            for (DrawText t : canvas.getTextsCopy()) {
-                client.sendCommand(new DrawCommand(t));
-            }
-        }
+    public void addPendingClient(String username, ClientHandler handler) {
+        pendingClients.put(username, handler);
     }
 
-    /**
-     * Stops the server and closes all sockets.
-     */
+    public ClientHandler removePendingClient(String username) {
+        return pendingClients.remove(username);
+    }
+
+    public ClientHandler getPendingClient(String username) {
+        return pendingClients.get(username);
+    }
+
     public void stopServer() {
         running = false;
         try {
@@ -132,12 +108,6 @@ public class CreateWhiteBoard {
                 serverSocket.close();
             }
 
-            /*synchronized (clients) {
-                for (ClientHandler c : clients) {
-                    c.close();
-                }
-                clients.clear();
-            }*/
         } catch (IOException e) {
             System.err.println("[Server] Error stopping server: " + e.getMessage());
         }
@@ -146,6 +116,66 @@ public class CreateWhiteBoard {
 
     public Canvas getCanvas() {
         return canvas;
+    }
+
+    public List<Shapes> getShapeList() {
+        return shapeList;
+    }
+
+    public List<StrokeData> getStrokes() {
+        return strokes;
+    }
+
+    public List<DrawText> getStrings() {
+        return strings;
+    }
+
+    public List<ChatData> getChats() {
+        return chats;
+    }
+
+    public void setChats(List<ChatData> chats) {
+        this.chats = chats;
+    }
+
+    public void clearChats() {
+        chats.clear();
+    }
+
+    public void addChat(ChatData chat) {
+        chats.add(chat);
+    }
+
+    public int userCount() {
+        return users.size();
+    }
+
+    public List<String> getUsers() {
+        return users;
+    }
+
+    public void setUsers(List<String> users) {
+        this.users = users;
+    }
+
+    public void clearUsers() {
+        users.clear();
+    }
+
+    public void addUser(String user) {
+        users.add(user);
+    }
+
+    public void removeUser(String user) {
+        users.remove(user);
+    }
+
+    public void setManagerUsername(String username) {
+        this.managerUsername = username;
+    }
+
+    public String getManagerUsername() {
+        return managerUsername;
     }
 
     public static void main(String[] args) {

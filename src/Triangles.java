@@ -13,8 +13,8 @@ public class Triangles extends ClosedShapes { // Changed from Shapes to ClosedSh
      * Constructor that passes the defining points, stroke, and color
      * to the superclass.
      */
-    public Triangles(Point p1, Point p2, Stroke s, Color c) {
-        super(p1, p2, s, c);
+    public Triangles(Point p1, Point p2, float s, Color c, boolean intermediate) {
+        super(p1, p2, s, c, intermediate);
     }
 
     /**
@@ -24,7 +24,7 @@ public class Triangles extends ClosedShapes { // Changed from Shapes to ClosedSh
     public void draw(Graphics2D g) {
         // Set the color and stroke (line thickness)
         g.setColor(getColor());
-        g.setStroke(getStrokeWidth());
+        g.setStroke(new BasicStroke(getStrokeWidth()));
 
         // Get the bounding box coordinates from the superclass
         double topX = getTopLeftX();
