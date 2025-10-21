@@ -76,6 +76,8 @@ public class CreateWhiteBoard {
         return false;
     }
 
+
+
     public void addClient(ClientHandler client) {
         synchronized (clients) {
             clients.add(client);
@@ -88,6 +90,44 @@ public class CreateWhiteBoard {
         }
         System.out.println("[Server] Client disconnected. Active clients: " + clients.size());
     }
+
+    public synchronized void kickUser(String targetUsername, String managerName, long managerHandlerId) {
+        ClientHandler handlerToKick = null;
+
+        if (targetUsername.equals(managerName)) {
+            System.err.println("[Server] Kick Error: Manager attempted to kick themselves (" + targetUsername + "). Ignoring.");
+            return;
+        }
+
+        // Find the handler for the target user from the *main* client list
+        synchronized (clients) {
+            for (ClientHandler c : clients) {
+                if (c.getUsername() != null && c.getUsername().equals(targetUsername)) {
+                    handlerToKick = c;
+                    break;
+                }
+            }
+        }
+
+        if (handlerToKick != null) {
+            // Send them a "you were kicked" message
+            // We re-use the CHAT field for the "reason"
+            DrawCommand kickMsg = new DrawCommand(DrawCommand.CommandType.BYE, "Server", "You were kicked by the manager (" + managerName + ").");
+            handlerToKick.sendCommand(kickMsg);
+
+            // Close their socket. Their own ClientHandler 'finally' block
+            // will then execute, which removes them from the server lists
+            // and broadcasts a final BYE message to all other clients.
+            try {
+                handlerToKick.closeSocket();
+            } catch (IOException e) {
+                System.err.println("Error closing socket for kicked user: " + e.getMessage());
+            }
+        } else {
+            System.err.println("[Server] Manager tried to kick non-existent user: " + targetUsername);
+        }
+    }
+
 
     public void addPendingClient(String username, ClientHandler handler) {
         pendingClients.put(username, handler);
@@ -146,11 +186,11 @@ public class CreateWhiteBoard {
         chats.add(chat);
     }
 
-    public int userCount() {
+    public synchronized int userCount() {
         return users.size();
     }
 
-    public List<String> getUsers() {
+    public synchronized List<String> getUsers() {
         return users;
     }
 
@@ -162,11 +202,11 @@ public class CreateWhiteBoard {
         users.clear();
     }
 
-    public void addUser(String user) {
+    public synchronized void addUser(String user) {
         users.add(user);
     }
 
-    public void removeUser(String user) {
+    public synchronized void removeUser(String user) {
         users.remove(user);
     }
 

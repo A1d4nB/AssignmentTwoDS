@@ -10,10 +10,22 @@ public class ClientHandler implements Runnable {
     private DrawCommand drawCommand;
     private String username;
     private boolean isApproved = false; // Tracks if this client is in the lobby
+    private static long nextId = 0; // Static counter for unique IDs
+    private final long handlerId;     // Unique ID for this instance
+
 
     public ClientHandler(Socket socket, CreateWhiteBoard server) {
         this.socket = socket;
         this.server = server;
+
+        synchronized (ClientHandler.class) { // Synchronize access to static counter
+            this.handlerId = nextId++;
+        }
+
+    }
+
+    public long getHandlerId() {
+        return handlerId;
     }
 
     @Override
@@ -124,6 +136,17 @@ public class ClientHandler implements Runnable {
                     case ACTIVE:
                         System.out.println("[Server] Client says ACTIVE");
                         break;
+                    case KICK:
+                        if (this.username.equals(server.getManagerUsername())) {
+                            String userToKick = incoming.getUsername();
+                            // --- Add ID to log ---
+                            System.out.println("[Server][ID:" + handlerId + "] Manager " + this.username + " is kicking " + userToKick);
+                            server.kickUser(userToKick, this.username, this.handlerId); // Pass manager's ID for logging
+                        } else {
+                            System.err.println("[Server][ID:" + handlerId + "] Warning: Non-manager " + this.username + " tried to kick " + incoming.getUsername());
+                        }
+                        break;
+
                     case BYE:
                         System.out.println("[Server] " + incoming.getUsername() + " requested disconnect.");
                         break; // Go to 'finally' block
@@ -143,25 +166,40 @@ public class ClientHandler implements Runnable {
             //e.printStackTrace();
         }  finally {
             try {
-                // We rely on 'drawCommand' (the initial HELLO) to get the username,
-                // as it's a class field and available here.
-                if (drawCommand != null && drawCommand.getUsername() != null) {
-                    //String username = drawCommand.getUsername();
-                    String username = this.username;
-                    server.removeUser(username);
-                    DrawCommand disconnectMsg = new DrawCommand(DrawCommand.CommandType.BYE, username, (ArrayList<String>) null);
-                    server.broadcast(disconnectMsg, this);
-                    System.out.println("[Server] Cleaned up and notified clients about " + username);
+                String handlerUser = (this.username != null ? this.username : "UNKNOWN");
+                System.out.println("[Server Cleanup][ID:" + handlerId + "] Finally block executing for user: " + handlerUser);
+
+                String usernameToRemove = this.username;
+                boolean wasApproved = this.isApproved;
+
+                server.removeClient(this);
+                System.out.println("[Server Cleanup][ID:" + handlerId + "] Removed handler instance.");
+
+                if (usernameToRemove != null) {
+                    server.removePendingClient(usernameToRemove);
                 }
 
-                // 4. Remove this handler from the server's active list
-                server.removeClient(this);
+                if (wasApproved && usernameToRemove != null) {
+                    server.removeUser(usernameToRemove); // This logs list state
+                    System.out.println("[Server Cleanup][ID:" + handlerId + "] Removed username from server list: " + usernameToRemove);
 
-                // 5. Close the socket
-                socket.close();
-            } catch (IOException ignored) {
+                    DrawCommand disconnectMsg = new DrawCommand(DrawCommand.CommandType.BYE, usernameToRemove, (ArrayList<String>) null);
+                    System.out.println("[Server Cleanup][ID:" + handlerId + "] Broadcasting BYE for: " + usernameToRemove);
+                    server.broadcast(disconnectMsg, this);
+                } else if (usernameToRemove != null) {
+                    System.out.println("[Server Cleanup][ID:" + handlerId + "] Cleaned up non-approved user: " + usernameToRemove);
+                } else {
+                    System.out.println("[Server Cleanup][ID:" + handlerId + "] Cleaned up handler with no username.");
+                }
+
+                System.out.println("[Server Cleanup][ID:" + handlerId + "] Ensuring socket is closed.");
+                closeSocket(); // Use the existing method which logs
+            } catch (Exception e) {
+                System.err.println("[Server Cleanup][ID:" + handlerId + "] EXCEPTION in finally block for user " + (this.username != null ? this.username : "UNKNOWN") + ": " + e.getMessage());
+                e.printStackTrace();
             }
-        }
+
+    }
     }
 
     public void setupNewUser() {
@@ -235,6 +273,16 @@ public class ClientHandler implements Runnable {
             }
         }
     }
+
+    public void closeSocket() throws IOException { // <-- Ensure 'public' keyword
+        if (socket != null && !socket.isClosed()) {
+            System.out.println("[Server Action] Closing socket for handler: " + (this.username != null ? this.username : "UNKNOWN")); // Add log
+            socket.close();
+        } else {
+            System.out.println("[Server Action] Socket already closed or null for handler: " + (this.username != null ? this.username : "UNKNOWN")); // Add log
+        }
+    }
+
 
     public String getUsername() {
         return username;

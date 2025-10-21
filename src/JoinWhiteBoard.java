@@ -2,6 +2,7 @@ import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.event.TableModelEvent;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.text.BadLocationException;
@@ -21,7 +22,7 @@ public class JoinWhiteBoard {
     private ConnectionPanel connectionPanel = new ConnectionPanel(JoinWhiteBoard.this);
     private DrawPanel drawPanel = new DrawPanel();
     private ChatPanel chatPanel = new ChatPanel();
-    private UserPanel userPanel = new UserPanel();
+    private UserPanel userPanel = new UserPanel(this);
 
     private boolean isConnected = false;
     private Socket socket;
@@ -152,7 +153,13 @@ public class JoinWhiteBoard {
                 case MGRINFO -> {
                     String manager = msg.getUsername();
                     this.setManagerUsername(manager); // Store it locally
-                    userPanel.setManager(manager); // Pass it to the panel
+                    userPanel.setManager(manager); // Pass it to the panel for rendering
+
+                    // Check if *we* are the manager
+                    if (manager.equals(userName)) {
+                        userPanel.setIsManager(true); // Tell panel "you are the manager"
+                    }
+
                 }
 
                 case TEXT -> {
@@ -251,7 +258,7 @@ public class JoinWhiteBoard {
         c.gridy++;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
-        userPanel = new UserPanel();
+        //userPanel = new UserPanel();
         toolpanel.add(userPanel, c);
         c.gridy++;
         c.anchor = GridBagConstraints.SOUTH;
@@ -625,21 +632,40 @@ public class JoinWhiteBoard {
         private final DefaultTableModel tableModel;
         private final JTable userTable;
         private String managerUsername;
+        private final JoinWhiteBoard jwb; // Reference to the main class
+        private boolean isManager = false;
 
-        public UserPanel() {
+
+        public UserPanel(JoinWhiteBoard jwb) {
+            this.jwb = jwb; // Store the reference
             setLayout(new BorderLayout());
             setBorder(BorderFactory.createTitledBorder("Connected Users"));
 
             // Column names for your table
-            String[] columns = {"Username", "Kick"};
+            String[] columns = {"Username", "Active"};
             tableModel = new DefaultTableModel(columns, 0) {
                 @Override
                 public boolean isCellEditable(int row, int column) {
-                    return false;
+                    // Column 0 (Username) is never editable
+                    if (column == 0) return false;
+
+                    // Only the manager can edit
+                    if (!isManager) return false;
+
+                    // The manager cannot kick themselves
+                    String targetUser = (String) tableModel.getValueAt(row, 0);
+                    return !targetUser.equals(JoinWhiteBoard.userName);
                 }
+
+                @Override
+                public Class<?> getColumnClass(int column) {
+                    return column == 1 ? Boolean.class : String.class;
+                }
+
             };
 
             userTable = new JTable(tableModel);
+            userTable.getColumnModel().getColumn(1).setMaxWidth(60);
             userTable.getColumnModel().getColumn(0).setCellRenderer(new BoldManagerRenderer());
             userTable.setRowHeight(25);
             userTable.setFillsViewportHeight(true);
@@ -657,14 +683,53 @@ public class JoinWhiteBoard {
             userTable.getTableHeader().setReorderingAllowed(false);
             userTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
             userTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+            tableModel.addTableModelListener(e -> {
+                if (e.getType() == TableModelEvent.UPDATE && e.getColumn() == 1) {
+                    int row = e.getFirstRow();
+                    // Get the new value
+                    Boolean isChecked = (Boolean) tableModel.getValueAt(row, 1);
+
+                    if (!isChecked) { // The box was just UNCHECKED
+                        String userToKick = (String) tableModel.getValueAt(row, 0);
+
+                        // Ask for confirmation
+                        int choice = JOptionPane.showConfirmDialog(
+                                this,
+                                "Are you sure you want to kick " + userToKick + "?",
+                                "Confirm Kick",
+                                JOptionPane.YES_NO_OPTION);
+
+                        if (choice == JOptionPane.YES_OPTION) {
+                            try {
+                                // Send the KICK command
+                                jwb.sendMessage(new DrawCommand(DrawCommand.CommandType.KICK, userToKick));
+                            } catch (IOException ex) {
+                                JOptionPane.showMessageDialog(this, "Error kicking user: " + ex.getMessage(), "Kick Error", JOptionPane.ERROR_MESSAGE);
+                                // Set checkbox back to true if sending failed
+                                SwingUtilities.invokeLater(() -> tableModel.setValueAt(true, row, 1));
+                            }
+                        } else {
+                            // User clicked "No", set checkbox back to true
+                            SwingUtilities.invokeLater(() -> tableModel.setValueAt(true, row, 1));
+                        }
+                    }
+                }
+            });
+
+        }
+
+        public void setIsManager(boolean isManager) {
+            this.isManager = isManager;
         }
 
         public void setManager(String username) {
             this.managerUsername = username;
             if (userTable != null) {
-                userTable.repaint(); // Redraw the table
+                userTable.repaint(); // Redraw table to apply bold font
             }
         }
+
 
         public void addUser(String username) {
             for (int i = 0; i < tableModel.getRowCount(); i++) {
@@ -672,7 +737,7 @@ public class JoinWhiteBoard {
                     return;
                 }
             }
-            tableModel.addRow(new Object[]{username, "Kick"});
+            tableModel.addRow(new Object[]{username, true});
         }
 
         public void removeUser(String username) {
@@ -712,7 +777,7 @@ public class JoinWhiteBoard {
         public void setUsers(List<String> usernames) {
             clearUsers();
             for (String name : usernames) {
-                tableModel.addRow(new Object[]{name});
+                tableModel.addRow(new Object[]{name, true});
             }
         }
 
