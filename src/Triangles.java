@@ -1,8 +1,8 @@
 
 import java.awt.*;
-import java.awt.geom.Path2D; // Used to create a custom polygon shape
+import java.awt.geom.Path2D;
 
-public class Triangles extends ClosedShapes { // Changed from Shapes to ClosedShapes
+public class Triangles extends ClosedShapes {
 
     public Triangles(Point p1, Point p2, float s, Color c, boolean intermediate) {
         super(p1, p2, s, c, intermediate);
@@ -10,7 +10,6 @@ public class Triangles extends ClosedShapes { // Changed from Shapes to ClosedSh
 
     @Override
     public void draw(Graphics2D g) {
-        // Set the color and stroke (line thickness)
         g.setColor(getColor());
         g.setStroke(new BasicStroke(getStrokeWidth()));
 
@@ -29,10 +28,10 @@ public class Triangles extends ClosedShapes { // Changed from Shapes to ClosedSh
         double y3 = topY + height;
 
         Path2D.Double triangle = new Path2D.Double();
-        triangle.moveTo(x1, y1); // Start at the top point
-        triangle.lineTo(x2, y2); // Draw to bottom-left
-        triangle.lineTo(x3, y3); // Draw to bottom-right
-        triangle.closePath();    // Connect back to the start
+        triangle.moveTo(x1, y1);
+        triangle.lineTo(x2, y2);
+        triangle.lineTo(x3, y3);
+        triangle.closePath();
 
         g.draw(triangle);
     }

@@ -19,13 +19,10 @@ public class StrokeData implements Serializable {
 
     public Point getPoint(int i) { return points.get(i); }
 
-    public List<Point> getPoints() { return points; }
 
     public Color getColor() { return color; }
 
     public float getWidth() { return width; }
-
-    public boolean isEmpty() { return points.isEmpty(); }
 
     public int size() { return points.size(); }
 

@@ -33,11 +33,11 @@ public class JoinWhiteBoard {
     private static int serverPort;
     private String managerUsername;
 
-    private List<StrokeData> strokes = new ArrayList<>();         // Stores the freehand stroke data
-    private List<Shapes> shapeList = new ArrayList<>();                     // Stores the shapes
+    private List<StrokeData> strokes        = new ArrayList<>();
+    private List<Shapes> shapeList          = new ArrayList<>();
     private List<Shapes> intermediateShapes = new ArrayList<>();
-    private List<DrawText> strings = new ArrayList<>();                     // Stores the text data
-    private List<ChatData> chats = new ArrayList<>();
+    private List<DrawText> strings          = new ArrayList<>();
+    private List<ChatData> chats            = new ArrayList<>();
 
     // Connect to the Whiteboard server
     private void connectToServer(String host, int port) {
@@ -62,10 +62,8 @@ public class JoinWhiteBoard {
     public void disconnectFromServer() {
         try {
             if (isConnected && out != null) {
-                // Send a message to everyone telling them I've left
                 sendMessage(new DrawCommand(DrawCommand.CommandType.BYE, userName, (ArrayList<String>) null));
                 out.flush();
-                //Thread.sleep(50); // allow small time for message to send
             }
             if (socket != null) socket.close();
         } catch (IOException e) {
@@ -93,8 +91,6 @@ public class JoinWhiteBoard {
                 }
             } catch (IOException e) {
                 System.err.println("Disconnected from server: " + e.getMessage());
-                //connectionPanel.setConnect();
-                //isConnected = false;
                 setConnected(false);
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
@@ -139,10 +135,8 @@ public class JoinWhiteBoard {
                     );
                     try {
                         if (choice == JOptionPane.YES_OPTION) {
-                            // Tell server: AUTH, for_user="Bob", response="YES"
                             sendMessage(new DrawCommand(DrawCommand.CommandType.AUTH, msg.getUsername(), "YES"));
                         } else {
-                            // Tell server: AUTH, for_user="Bob", response="NO"
                             sendMessage(new DrawCommand(DrawCommand.CommandType.AUTH, msg.getUsername(), "NO"));
                         }
                     } catch (IOException e) {
@@ -155,7 +149,6 @@ public class JoinWhiteBoard {
                     this.setManagerUsername(manager); // Store it locally
                     userPanel.setManager(manager); // Pass it to the panel for rendering
 
-                    // Check if *we* are the manager
                     if (manager.equals(userName)) {
                         userPanel.setIsManager(true); // Tell panel "you are the manager"
                     }
@@ -169,7 +162,9 @@ public class JoinWhiteBoard {
                     canvas.repaint();
                 }
 
-                case CHAT -> {addMessage(chatPanel.getChatConversation(), msg.getUsername() + "> " + msg.getChatText() + "\n", false);}
+                case CHAT -> {addMessage(chatPanel.getChatConversation(), msg.getUsername()
+                        + "> " + msg.getChatText()
+                        + "\n", false);}
 
                 case CLEAR -> {
                     canvas.clearWhiteBoard();
@@ -189,19 +184,19 @@ public class JoinWhiteBoard {
                     boolean isIntermediate = shape.getIntermediate();
 
                     if (isIntermediate) {
-                        // Intermediate shapes just get shown, not added to list
+                        // Intermediate shapes just get shown not added to list
                         intermediateShapes.removeIf(prev ->
                                 prev.getClass() == shape.getClass() &&
                                         prev.getStartPoint().equals(shape.getStartPoint()));
                         intermediateShapes.add(shape);
                     } else {
-                        // This is a FINAL shape from another user
+                        // This is a final shape from another user
                         intermediateShapes.removeIf(prev ->
                                 prev.getClass() == shape.getClass() &&
                                         prev.getStartPoint().equals(shape.getStartPoint())
                         );
 
-                        shapeList.add(shape);                 // Add final shape to list
+                        shapeList.add(shape);               // Add final shape to list
                         canvas.drawShapeOnBuffer(shape);    // Draw final shape on buffer
                     }
                     canvas.repaint();
@@ -215,7 +210,7 @@ public class JoinWhiteBoard {
                         strokes.add(stroke);
                     }
 
-                    // Draw ALL strokes (intermediate and final) to the buffer
+                    // Draw all strokes to the buffer
                     canvas.drawStrokeOnBuffer(stroke);
                     canvas.repaint();
 
@@ -226,21 +221,18 @@ public class JoinWhiteBoard {
                         JOptionPane.showMessageDialog(null,
                                 "Disconnected: " + msg.getChatText(),
                                 "Connection Closed", JOptionPane.WARNING_MESSAGE);
-                        // The SocketListener's 'finally' block will call setConnected(false)
-                        // which handles the UI cleanup
                     } else {
-                        // This is a normal disconnect notification
                         userPanel.removeUser(msg.getUsername());
                         canvas.repaint();
                     }
                 }
-
                 default -> throw new IllegalStateException("Unexpected value: " + msg.getType());
             }
         });
     }
 
     private JPanel createToolboxPanel() {
+        // Create the toolbox panel that is to the right of the drawing pane
         JPanel toolpanel = new JPanel();
         toolpanel.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -257,7 +249,6 @@ public class JoinWhiteBoard {
         c.gridy++;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
-        //userPanel = new UserPanel();
         toolpanel.add(userPanel, c);
         c.gridy++;
         c.anchor = GridBagConstraints.SOUTH;
@@ -273,8 +264,8 @@ public class JoinWhiteBoard {
     }
 
     public class ConnectionPanel extends JPanel {
+        // Panel that contains connection information and connect button
         private JButton connectButton;
-        private JLabel hostLabel, portLabel;
         private JTextField hostIP, hostPort;
 
         public ConnectionPanel(JoinWhiteBoard jwb) {
@@ -302,14 +293,14 @@ public class JoinWhiteBoard {
 
             connectButton.addActionListener(e -> {
                 if (!jwb.isConnected()) {
-                    // Connect logic
+                    // connect logic
                     try {
                         jwb.connectToServer(serverIP, serverPort);
                     } catch (NumberFormatException ex) {
                         JOptionPane.showMessageDialog(null, "Invalid port number");
                     }
                 } else {
-                    // Disconnect logic
+                    // disconnect logic
                     jwb.disconnectFromServer();
                 }
             });
@@ -335,6 +326,7 @@ public class JoinWhiteBoard {
     }
 
     public class DrawPanel extends JPanel {
+        // Panel that contains all the drawing tools and settings
         private JComboBox shapeSelector = new JComboBox<>(
                 new String[]{"Triangle", "Rectangle", "Oval", "Line"});
         private JButton clearButton;
@@ -343,9 +335,9 @@ public class JoinWhiteBoard {
         private JComboBox<String> colorSelector = new JComboBox<>(
                 new String[]{"Black", "Red", "Green", "Blue", "Orange", "Magenta", "Cyan", "Dark Gray", "Gray", "Light Gray"
                         ,"Pink", "Yellow", "Indigo", "Gold", "Tan", "Lavender"});
-        private JSpinner strokeSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
-        private JSpinner eraserSizeSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
-        private JSpinner fontSizeSpinner = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
+        private JSpinner strokeSizeSpinner  = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
+        private JSpinner eraserSizeSpinner  = new JSpinner(new SpinnerNumberModel(5, 1, 20, 1));
+        private JSpinner fontSizeSpinner    = new JSpinner(new SpinnerNumberModel(12, 8, 72, 1));
 
         private void applySelectedColor() {
             String selected = (String) colorSelector.getSelectedItem();
@@ -422,7 +414,6 @@ public class JoinWhiteBoard {
             c.gridx--;
             strokeSizeSpinner.setPreferredSize(new Dimension(70, 26));
             strokeSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, strokeSizeSpinner.getPreferredSize().height));
-
             add(new JLabel("Stroke Size:"), c);
             c.gridx++;
             add(strokeSizeSpinner, c);
@@ -433,7 +424,6 @@ public class JoinWhiteBoard {
             eraserSizeSpinner.setPreferredSize(new Dimension(70, 26));
             eraserSizeSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, eraserSizeSpinner.getPreferredSize().height));
             add(eraserSizeSpinner, c);
-
             c.gridy++;
             c.gridx--;
             add(new JLabel("Font Size:"), c);
@@ -447,7 +437,7 @@ public class JoinWhiteBoard {
             add(clearButton = new JButton("Clear All"), c);
 
             colorSelector.addActionListener(e -> {
-                applySelectedColor(); // Just call the helper
+                applySelectedColor();
             });
 
             drawText.addActionListener(e -> {
@@ -469,7 +459,6 @@ public class JoinWhiteBoard {
                     canvas.updateEraserCursor(size); // Update cursor
                 }
             });
-
 
             formShape.addActionListener(e -> {
                 String shape = (String) shapeSelector.getSelectedItem();
@@ -494,7 +483,6 @@ public class JoinWhiteBoard {
             modeDraw.addActionListener(e -> {
                 canvas.setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
-                // Re-enable all drawing controls
                 colorSelector.setEnabled(true);
                 shapeSelector.setEnabled(true);
                 formFree.setEnabled(true);
@@ -502,12 +490,9 @@ public class JoinWhiteBoard {
                 formText.setEnabled(true);
                 drawText.setEnabled(true);
                 strokeSizeSpinner.setEnabled(true);
-
-                // Restore the selected color and stroke
                 applySelectedColor();
                 canvas.setStrokeWidth((int) strokeSizeSpinner.getValue());
 
-                // Restore the selected shape mode
                 if (formFree.isSelected()) formFree.doClick();
                 else if (formShape.isSelected()) formShape.doClick();
                 else if (formText.isSelected()) formText.doClick();
@@ -517,13 +502,11 @@ public class JoinWhiteBoard {
             modeErase.addActionListener(e -> {
                 int size = (int) eraserSizeSpinner.getValue();
 
-                // Set eraser properties
-                canvas.setShapeColor(Color.WHITE); // Core logic
-                canvas.setSelectedShape("Free Draw"); // Core logic
+                canvas.setShapeColor(Color.WHITE);
+                canvas.setSelectedShape("Free Draw");
                 canvas.setStrokeWidth(size);
-                canvas.updateEraserCursor(size); // Use custom cursor
+                canvas.updateEraserCursor(size);
 
-                // Disable all other controls
                 colorSelector.setEnabled(false);
                 shapeSelector.setEnabled(false);
                 formFree.setEnabled(false);
@@ -545,6 +528,7 @@ public class JoinWhiteBoard {
     }
 
     public class ChatPanel extends JPanel {
+        // Panel that contains the chat history, new message area, and send button
         private JTextPane chatConversation;
         private JTextField chatMsg;
         private JButton chatSend;
@@ -577,6 +561,7 @@ public class JoinWhiteBoard {
             add(chatSend = new JButton("Send"), c);
 
             chatMsg.addKeyListener(new KeyAdapter() {
+                // Allows enter in the new message area to send the message
                 @Override
                 public void keyPressed(KeyEvent e) {
                     if (e.getKeyCode() == KeyEvent.VK_ENTER) {
@@ -607,19 +592,16 @@ public class JoinWhiteBoard {
         public JTextPane getChatConversation() {
             return chatConversation;
         }
-
     }
 
-
     public void addMessage(JTextPane chat, String message, Boolean isRightAligned) {
+        // Using the JTextPane to allow left and right justified text to mimic user and group chats
         StyledDocument doc = chat.getStyledDocument();
         SimpleAttributeSet attrs = new SimpleAttributeSet();
 
-        // Set alignment
         StyleConstants.setAlignment(attrs, isRightAligned ? StyleConstants.ALIGN_RIGHT : StyleConstants.ALIGN_LEFT);
         doc.setParagraphAttributes(doc.getLength(), 1, attrs, false);
 
-        // Append chat message
         try {
             doc.insertString(doc.getLength(), message + "\n", null);
         } catch (BadLocationException e) {
@@ -628,30 +610,26 @@ public class JoinWhiteBoard {
     }
 
     public class UserPanel extends JPanel {
+        // Panel that contains a list of the current users - manager username is bold
         private final DefaultTableModel tableModel;
         private final JTable userTable;
         private String managerUsername;
         private final JoinWhiteBoard jwb; // Reference to the main class
         private boolean isManager = false;
 
-
         public UserPanel(JoinWhiteBoard jwb) {
-            this.jwb = jwb; // Store the reference
+            this.jwb = jwb;
             setLayout(new BorderLayout());
             setBorder(BorderFactory.createTitledBorder("Connected Users"));
 
-            // Column names for your table
             String[] columns = {"Username", "Active"};
             tableModel = new DefaultTableModel(columns, 0) {
                 @Override
                 public boolean isCellEditable(int row, int column) {
-                    // Column 0 (Username) is never editable
                     if (column == 0) return false;
 
-                    // Only the manager can edit
                     if (!isManager) return false;
 
-                    // The manager cannot kick themselves
                     String targetUser = (String) tableModel.getValueAt(row, 0);
                     return !targetUser.equals(JoinWhiteBoard.userName);
                 }
@@ -660,7 +638,6 @@ public class JoinWhiteBoard {
                 public Class<?> getColumnClass(int column) {
                     return column == 1 ? Boolean.class : String.class;
                 }
-
             };
 
             userTable = new JTable(tableModel);
@@ -669,9 +646,8 @@ public class JoinWhiteBoard {
             userTable.setRowHeight(25);
             userTable.setFillsViewportHeight(true);
             userTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-            userTable.getColumnModel().getColumn(0).setPreferredWidth(20); // first column
-            userTable.getColumnModel().getColumn(1).setPreferredWidth(10);  // second column
-
+            userTable.getColumnModel().getColumn(0).setPreferredWidth(20);
+            userTable.getColumnModel().getColumn(1).setPreferredWidth(10);
             userTable.setPreferredScrollableViewportSize(
                     new Dimension(400, userTable.getRowHeight() * 3)
             );
@@ -686,13 +662,11 @@ public class JoinWhiteBoard {
             tableModel.addTableModelListener(e -> {
                 if (e.getType() == TableModelEvent.UPDATE && e.getColumn() == 1) {
                     int row = e.getFirstRow();
-                    // Get the new value
                     Boolean isChecked = (Boolean) tableModel.getValueAt(row, 1);
 
-                    if (!isChecked) { // The box was just UNCHECKED
+                    if (!isChecked) {
                         String userToKick = (String) tableModel.getValueAt(row, 0);
 
-                        // Ask for confirmation
                         int choice = JOptionPane.showConfirmDialog(
                                 this,
                                 "Are you sure you want to kick " + userToKick + "?",
@@ -709,7 +683,6 @@ public class JoinWhiteBoard {
                                 SwingUtilities.invokeLater(() -> tableModel.setValueAt(true, row, 1));
                             }
                         } else {
-                            // User clicked "No", set checkbox back to true
                             SwingUtilities.invokeLater(() -> tableModel.setValueAt(true, row, 1));
                         }
                     }
@@ -725,10 +698,9 @@ public class JoinWhiteBoard {
         public void setManager(String username) {
             this.managerUsername = username;
             if (userTable != null) {
-                userTable.repaint(); // Redraw table to apply bold font
+                userTable.repaint();
             }
         }
-
 
         public void addUser(String username) {
             for (int i = 0; i < tableModel.getRowCount(); i++) {
@@ -758,7 +730,6 @@ public class JoinWhiteBoard {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 String username = (String) value;
 
-                // Check if this is the manager
                 if (managerUsername != null && managerUsername.equals(username)) {
                     c.setFont(c.getFont().deriveFont(Font.BOLD));
                 } else {
@@ -779,35 +750,19 @@ public class JoinWhiteBoard {
                 tableModel.addRow(new Object[]{name, true});
             }
         }
-
-        public ArrayList<String> getUserList() {
-            ArrayList<String> users = new ArrayList<>();
-            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                users.add((String) tableModel.getValueAt(i, 0));
-            }
-            return users;
-        }
-
     }
 
     public List<StrokeData> getStrokes() {
         return strokes;
     }
 
-    public void setStrokes(List<StrokeData> sd) {
-        this.strokes = sd;
-    }
-
     public void addStroke(StrokeData s) {
-        // strokes.add(s); // --- DELETE THIS LINE ---
         try {
-            // Send the command *with* our local userName
             sendMessage(new DrawCommand(s, userName));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-
 
     public void clearStrokes() {
         if(strokes != null){
@@ -840,50 +795,24 @@ public class JoinWhiteBoard {
         return intermediateShapes;
     }
 
-    public void setShapeList(List<Shapes> shapeList) {
-        this.shapeList = shapeList;
-    }
-
     public void addShape(Shapes s) {
-        // shapeList.add(s); // --- DELETE THIS LINE ---
         try {
-            // Send the command *with* our local userName
             sendMessage(new DrawCommand(s, userName));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
-
 
     public List<DrawText> getStrings() {
         return strings;
     }
 
-    public void setStrings(List<DrawText> strings) {
-        this.strings = strings;
-    }
-
     public void addString(DrawText s) {
-        // strings.add(s); // --- DELETE THIS LINE ---
         try {
-            // Send the command *with* our local userName
             sendMessage(new DrawCommand(s, userName));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-
-    public List<ChatData> getChatData() {
-        return chats;
-    }
-
-    public void setChatData(List<ChatData> chatData) {
-        this.chats = chatData;
-    }
-
-    public void addChat(ChatData s) {
-        chats.add(s);
     }
 
     public void clearChats() {
@@ -912,24 +841,17 @@ public class JoinWhiteBoard {
     }
 
     public static void main(String[] args) {
-        // Check right number of arguments provided
         if (args.length < 2) {
             System.err.println("Usage: java CreateWhiteBoard <ServerIPAddress> <port> <Username>");
             System.exit(1);
         }
 
-        // Parse arguments
         serverIP = args[0];
         serverPort = Integer.parseInt(args[1]);
         userName = args[2];
 
-        System.out.println("Server IP: " + serverIP);
-        System.out.println("Server Port: " + serverPort);
-        System.out.println("Server Username: " + userName);
-
-        // Start the WhiteBoard client, running in a thread
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Join White Board");
+            JFrame frame = new JFrame("Join White Board: " + userName);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setSize(900, 700);
 

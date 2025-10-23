@@ -12,9 +12,9 @@ public class DrawCommand implements Serializable {
 
     private ArrayList<String> userList;
     private final CommandType type;
-    private StrokeData stroke;  // for freehand drawings
-    private Shapes shape;       // for shapes (Rectangles, Ovals, etc.)
-    private final DrawText textData;  // for text commands
+    private StrokeData stroke;          // for freehand drawings
+    private Shapes shape;               // for shapes (Rectangles, Ovals, etc.)
+    private final DrawText textData;    // for text commands
     private final String chatText;
     private boolean intermediate;
     private final String username;
@@ -38,7 +38,7 @@ public class DrawCommand implements Serializable {
         this.textData = null;
         this.username = username;
         this.chatText = null;
-        this.intermediate = false; // You might want to pass this in
+        this.intermediate = false;
         this.userList = null;
     }
 
@@ -50,7 +50,7 @@ public class DrawCommand implements Serializable {
         this.textData = null;
         this.username = username;
         this.chatText = null;
-        this.intermediate = false; // You might want to pass this in
+        this.intermediate = false;
         this.userList = null;
     }
 

@@ -10,7 +10,6 @@ public final class DrawText implements Serializable {
     private final Point pos;
     private final int fontSize;
     private final Color color;
-    private transient String drawingUsername = null;
 
     public DrawText(String text, Point pos, int fontSize, Color color) {
         this.text = text;

@@ -7,9 +7,9 @@ import java.util.List;
 import java.awt.image.BufferedImage;
 
 public class Canvas extends JPanel {
-    private StrokeData currentStroke;       // Stores the points of the current freehand stroke
-    private Shapes currentShape;            // Holds the current shape
-    private float strokeWidth = 5;          // Set default stroke width
+    private StrokeData currentStroke;
+    private Shapes currentShape;
+    private float strokeWidth = 5;
     private BufferedImage buffer;
     private Graphics2D bufferGraphics;
     private final String font = "Arial";
@@ -19,8 +19,8 @@ public class Canvas extends JPanel {
     private long lastSent = 0;
     private float currentStrokeStyle = 5;
 
-    private String selectedShape = "Free Draw"; // can be "Free Draw", "Rectangle", "Oval", "Line", etc.
-    private Color shapeColor = Color.BLACK; // Set default colour
+    private String selectedShape = "Free Draw";
+    private Color shapeColor = Color.BLACK;
 
     public Canvas(JoinWhiteBoard jb) {
         this.joinWhiteBoard = jb;
@@ -88,7 +88,6 @@ public class Canvas extends JPanel {
                         currentShape.setEndPoint(e.getPoint());
                         currentShape.setIntermediate(false);
                         joinWhiteBoard.addShape(currentShape); // Send final
-                        // The final shape is drawn by addRemoteShape
                         drawShapeOnBuffer(currentShape); // Draw final shape locally
                         currentShape = null;
                         repaint();
@@ -98,15 +97,12 @@ public class Canvas extends JPanel {
                     if (currentStroke != null) {
                         currentStroke.setIntermediate(false);
                         joinWhiteBoard.addStroke(currentStroke); // Send final
-                        // The final stroke is drawn by addRemoteStroke
                         currentStroke = null;
                     }
                 }
                 repaint();
             }
         };
-
-
         addMouseListener(handler);
         addMouseMotionListener(handler);
     }
@@ -132,33 +128,25 @@ public class Canvas extends JPanel {
             bufferGraphics.setColor(Color.WHITE);
             bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
         }
-
         repaint();
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
-        // --- ADD THIS: Buffer creation logic ---
         // If buffer doesn't exist, or window was resized, create a new one
         if (buffer == null || buffer.getWidth() != getWidth() || buffer.getHeight() != getHeight()) {
             buffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
             bufferGraphics = buffer.createGraphics();
-
-            // IMPORTANT: Clear the new buffer to white
+            // Clear the new buffer to white
             bufferGraphics.setColor(Color.WHITE);
             bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
-
             // Redraw everything from the lists onto the new buffer
             redrawAllOnBuffer();
         }
-        // --- END ADD ---
-
         // Draw the entire buffer to the screen in one go
         g.drawImage(buffer, 0, 0, null);
-
-        // Draw intermediate shapes (like the rubber band) on top
+        // Draw intermediate shapes on top
         Graphics2D g2d = (Graphics2D) g;
         if (currentShape != null) {
             currentShape.draw(g2d);
@@ -168,40 +156,31 @@ public class Canvas extends JPanel {
         }
     }
 
-
     private void redrawAllOnBuffer() {
         if (bufferGraphics == null) return;
 
-        // 1. Clear buffer to white
+        // Clear buffer to white
         bufferGraphics.setColor(Color.WHITE);
         bufferGraphics.fillRect(0, 0, getWidth(), getHeight());
-
-        // --- CHANGE DRAW ORDER ---
-
-        // 2. Draw all permanent shapes FIRST
+        // Draw all permanent shapes FIRST
         for (Shapes shape : joinWhiteBoard.getShapeList()) {
             drawShapeOnBuffer(shape);
         }
-
-        // 3. Draw all text SECOND
+        // Draw all text SECOND
         for (DrawText dt : joinWhiteBoard.getStrings()) {
             drawTextOnBuffer(dt);
         }
 
-        // 4. Draw all strokes (including erasers) LAST
+        // Draw all strokes (including erasers) LAST
         for (StrokeData stroke : joinWhiteBoard.getStrokes()) {
             drawStrokeOnBuffer(stroke);
         }
-
     }
-
 
     public void drawStrokeOnBuffer(StrokeData stroke) {
         if (bufferGraphics == null || stroke == null) return;
-
         bufferGraphics.setColor(stroke.getColor());
         bufferGraphics.setStroke(new BasicStroke(stroke.getWidth(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
         if (stroke.size() > 1) {
             Point p1 = stroke.getPoint(0);
             for (int i = 1; i < stroke.size(); i++) {
@@ -228,15 +207,6 @@ public class Canvas extends JPanel {
         bufferGraphics.drawString(dt.text(), dt.pos().x, dt.pos().y);
     }
 
-
-
-    protected void addText(String text, Point p, int fontSize, Color color) {
-        if(text == null || text.isEmpty()) return;
-        //DrawText currentText = new DrawText(text, p, fontSize, shapeColor);
-        joinWhiteBoard.addString(new DrawText(text, p, fontSize, color));
-        repaint();
-    }
-
     public void setSelectedShape(String shape) {
         this.selectedShape = shape;
     }
@@ -261,7 +231,6 @@ public class Canvas extends JPanel {
     protected void updateEraserCursor(int eraserSize) {
         int size = eraserSize * 2;
         BufferedImage cursorImg = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
-
         Graphics2D g2 = cursorImg.createGraphics();
         g2.setColor(Color.BLACK);
         g2.setStroke(new BasicStroke(2));
@@ -274,17 +243,5 @@ public class Canvas extends JPanel {
                 .createCustomCursor(cursorImg, hotspot, "Eraser");
 
         this.setCursor(customCursor);
-    }
-
-    public synchronized List<StrokeData> getStrokesCopy() {
-        return new ArrayList<>(joinWhiteBoard.getStrokes());
-    }
-
-    public synchronized List<Shapes> getShapesCopy() {
-        return new ArrayList<>(joinWhiteBoard.getShapeList());
-    }
-
-    public synchronized List<DrawText> getTextsCopy() {
-        return new ArrayList<>(joinWhiteBoard.getStrings());
     }
 }

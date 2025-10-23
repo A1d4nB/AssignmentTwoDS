@@ -32,12 +32,8 @@ public class CreateWhiteBoard {
             serverSocket = new ServerSocket(port);
             running = true;
 
-            System.out.println("[Server] Whiteboard created by manager: " + managerUsername);
-            System.out.println("[Server] Listening on port " + port + " ...");
-
             while (running) {
                 Socket clientSocket = serverSocket.accept();
-
                 ClientHandler handler = new ClientHandler(clientSocket, this);
                 new Thread(handler).start();
             }
@@ -94,7 +90,6 @@ public class CreateWhiteBoard {
             return;
         }
 
-        // Find the handler for the target user from the *main* client list
         synchronized (clients) {
             for (ClientHandler c : clients) {
                 if (c.getUsername() != null && c.getUsername().equals(targetUsername)) {
@@ -105,14 +100,9 @@ public class CreateWhiteBoard {
         }
 
         if (handlerToKick != null) {
-            // Send them a "you were kicked" message
-            // We re-use the CHAT field for the "reason"
             DrawCommand kickMsg = new DrawCommand(DrawCommand.CommandType.BYE, "Server", "You were kicked by the manager (" + managerName + ").");
             handlerToKick.sendCommand(kickMsg);
 
-            // Close their socket. Their own ClientHandler 'finally' block
-            // will then execute, which removes them from the server lists
-            // and broadcasts a final BYE message to all other clients.
             try {
                 handlerToKick.closeSocket();
             } catch (IOException e) {
@@ -122,7 +112,6 @@ public class CreateWhiteBoard {
             System.err.println("[Server] Manager tried to kick non-existent user: " + targetUsername);
         }
     }
-
 
     public void addPendingClient(String username, ClientHandler handler) {
         pendingClients.put(username, handler);
@@ -149,10 +138,6 @@ public class CreateWhiteBoard {
         System.out.println("[Server] Whiteboard server stopped.");
     }
 
-    public Canvas getCanvas() {
-        return canvas;
-    }
-
     public List<Shapes> getShapeList() {
         return shapeList;
     }
@@ -169,10 +154,6 @@ public class CreateWhiteBoard {
         return chats;
     }
 
-    public void setChats(List<ChatData> chats) {
-        this.chats = chats;
-    }
-
     public void clearChats() {
         chats.clear();
     }
@@ -187,14 +168,6 @@ public class CreateWhiteBoard {
 
     public synchronized List<String> getUsers() {
         return users;
-    }
-
-    public void setUsers(List<String> users) {
-        this.users = users;
-    }
-
-    public void clearUsers() {
-        users.clear();
     }
 
     public synchronized void addUser(String user) {
