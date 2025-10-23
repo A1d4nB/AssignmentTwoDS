@@ -192,6 +192,7 @@ public class Canvas extends JPanel {
         for (StrokeData stroke : joinWhiteBoard.getStrokes()) {
             drawStrokeOnBuffer(stroke);
         }
+
     }
 
 

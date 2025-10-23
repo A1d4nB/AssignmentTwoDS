@@ -42,7 +42,6 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    // --- ADD THIS CONSTRUCTOR ---
     /** Constructor for shape drawing with username */
     public DrawCommand(Shapes shape, String username) {
         this.type = CommandType.SHAPE;
@@ -55,7 +54,6 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    // --- ADD THIS CONSTRUCTOR ---
     /** Constructor for adding text with username */
     public DrawCommand(DrawText textData, String username) {
         this.type = CommandType.TEXT;
@@ -67,7 +65,6 @@ public class DrawCommand implements Serializable {
         this.intermediate = false;
         this.userList = null;
     }
-
 
     /** Constructor for shape drawing */
     public DrawCommand(Shapes shape) {
@@ -93,12 +90,6 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    /** Constructor for clearing the board
-    public static DrawCommand clearCommand() {
-        return new DrawCommand(CommandType.CLEAR);
-    } */
-
-    /** Private constructor for CLEAR command */
     public DrawCommand(CommandType type) {
         this.type = type;
         this.stroke = null;
@@ -110,7 +101,7 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    // Use for AUTH and KICK
+    // used for AUTH and KICK
     public DrawCommand(CommandType type, String username) {
         this.type = type;
         this.stroke = null;
@@ -122,7 +113,7 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    // Used for HELLO, USER, ACTIVE and KICK message
+    // used for HELLO, USER, ACTIVE and KICK message
     public DrawCommand(CommandType type, String username, ArrayList<String> userList) {
         this.type = type;
         this.username = username;
@@ -134,7 +125,7 @@ public class DrawCommand implements Serializable {
         this.userList = userList;
     }
 
-    // Used for chat messages
+    // used for chat messages
     public DrawCommand(CommandType type, String username, String chatText) {
         this.type = type;
         this.username = username;
@@ -146,18 +137,7 @@ public class DrawCommand implements Serializable {
         this.userList = null;
     }
 
-    /** Full constructor (for advanced usage if needed) */
-    public DrawCommand(CommandType type, StrokeData stroke, Shapes shape, DrawText textData, String username) {
-        this.type = type;
-        this.stroke = stroke;
-        this.shape = shape;
-        this.textData = textData;
-        this.username = username;
-        this.chatText = null;
-        this.intermediate = false;
-    }
-
-    // Getters
+    // getters
     public CommandType getType() {
         return type;
     }
@@ -186,14 +166,9 @@ public class DrawCommand implements Serializable {
         return intermediate;
     }
 
-    public void setIntermediate(Boolean intermediate) {
-        this.intermediate = intermediate;
-    }
-
     public ArrayList<String> getUserList() {
         return userList;
     }
-
 
     @Override
     public String toString() {

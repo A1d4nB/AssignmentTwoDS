@@ -111,10 +111,12 @@ public class ClientHandler implements Runnable {
                         server.broadcast(incoming, this);
                         break;
                     case SHAPE:
-                        System.out.println("[Server] Client says SHAPE: " + incoming.getShape().getEndPoint());
+                        Shapes receivedShape = incoming.getShape();
+
                         if (!incoming.getIntermediate()) {
                             server.getShapeList().add(incoming.getShape());
                         }
+
                         server.broadcast(incoming, this);
                         break;
                     case STROKE:
@@ -163,7 +165,6 @@ public class ClientHandler implements Runnable {
             System.out.println("[Server] " + drawCommand.getUsername() + " disconnected.");
         } catch(Exception e){
             System.err.println("[ClientHandler] Error: " + e.getMessage());
-            //e.printStackTrace();
         }  finally {
             try {
                 String handlerUser = (this.username != null ? this.username : "UNKNOWN");
@@ -180,7 +181,7 @@ public class ClientHandler implements Runnable {
                 }
 
                 if (wasApproved && usernameToRemove != null) {
-                    server.removeUser(usernameToRemove); // This logs list state
+                    server.removeUser(usernameToRemove);
                     System.out.println("[Server Cleanup][ID:" + handlerId + "] Removed username from server list: " + usernameToRemove);
 
                     DrawCommand disconnectMsg = new DrawCommand(DrawCommand.CommandType.BYE, usernameToRemove, (ArrayList<String>) null);
@@ -193,35 +194,33 @@ public class ClientHandler implements Runnable {
                 }
 
                 System.out.println("[Server Cleanup][ID:" + handlerId + "] Ensuring socket is closed.");
-                closeSocket(); // Use the existing method which logs
+                closeSocket();
             } catch (Exception e) {
                 System.err.println("[Server Cleanup][ID:" + handlerId + "] EXCEPTION in finally block for user " + (this.username != null ? this.username : "UNKNOWN") + ": " + e.getMessage());
                 e.printStackTrace();
             }
-
-    }
+        }
     }
 
     public void setupNewUser() {
-        // Add the new user to the user list
+        // add the new user to the user list
         server.addUser(drawCommand.getUsername());
         for(String u : server.getUsers()){
             sendCommand(new DrawCommand(DrawCommand.CommandType.USER, u, drawCommand.getUserList()));
         }
 
-        // Broadcast the new user to other clients
+        // broadcast the new user to other clients
         server.broadcast(new DrawCommand(DrawCommand.CommandType.USER, drawCommand.getUsername(), drawCommand.getUserList()), this );
 
-        // Send a CLEAR command to the newly joined user so they can receive the shared whiteboard
+        // send a CLEAR command to the newly joined user so they can receive the shared whiteboard
         sendCommand(new DrawCommand(DrawCommand.CommandType.CLEAR));
-
         sendCommand(new DrawCommand(DrawCommand.CommandType.MGRINFO, server.getManagerUsername()));
 
-        // Send the CHAT history to the new user
+        // send the CHAT history to the new user
         for(ChatData c : server.getChats()) {sendCommand(new DrawCommand(DrawCommand.CommandType.CHAT, c.getUsername(), c.getUsername()));}
         sendCommand(new DrawCommand(DrawCommand.CommandType.CHAT, drawCommand.getUsername(), "Welcome to the chat, " + drawCommand.getUsername() + "."));
 
-        // Send list of all server shapes to the new user
+        // send list of all server shapes to the new user
         for (Shapes s : server.getShapeList()) {
             if (!s.getIntermediate()) {
                 sendCommand(new DrawCommand(s));
@@ -234,38 +233,37 @@ public class ClientHandler implements Runnable {
 
     private void handleAuthResponse(DrawCommand cmd) {
         // 'cmd' is the manager's response.
-        String targetUsername = cmd.getUsername(); // The user to approve/deny
-        String response = cmd.getChatText();       // The "YES" or "NO" string
+        String targetUsername = cmd.getUsername();
+        String response = cmd.getChatText();
 
-        // Find the pending client
+        // find the pending client
         ClientHandler pendingHandler = server.getPendingClient(targetUsername);
         if (pendingHandler == null) {
             System.out.println("[Server] Manager responded for " + targetUsername + ", but they are no longer pending.");
             return;
         }
 
-        // Remove from pending list
         server.removePendingClient(targetUsername);
 
         if ("YES".equals(response)) {
             System.out.println("[Server] Manager APPROVED " + targetUsername);
 
-            // 1. "Promote" the client
+            // promote the client
             pendingHandler.isApproved = true;
-            server.addClient(pendingHandler); // Add to main broadcast list
+            server.addClient(pendingHandler);
 
-            // 2. Call the setup method for the newly approved client
-            // This will send them the user list, chat history, and all shapes
+            // call the setup method for the newly approved client
+            // this will send them the user list, chat history, and all shapes
             pendingHandler.setupNewUser();
 
-        } else { // Response was "NO"
+        } else {
             System.out.println("[Server] Manager DENIED " + targetUsername);
 
-            // 1. Tell the client they were denied
+            // tell the client they were denied
             DrawCommand denial = new DrawCommand(DrawCommand.CommandType.BYE, "Server", "Your request was denied by the manager.");
             pendingHandler.sendCommand(denial);
 
-            // 2. Close their socket. Their own 'finally' block will clean them up.
+            // close their socket. their own finally block will clean them up.
             try {
                 pendingHandler.socket.close();
             } catch (IOException e) {
@@ -274,7 +272,7 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public void closeSocket() throws IOException { // <-- Ensure 'public' keyword
+    public void closeSocket() throws IOException {
         if (socket != null && !socket.isClosed()) {
             System.out.println("[Server Action] Closing socket for handler: " + (this.username != null ? this.username : "UNKNOWN")); // Add log
             socket.close();
@@ -282,7 +280,6 @@ public class ClientHandler implements Runnable {
             System.out.println("[Server Action] Socket already closed or null for handler: " + (this.username != null ? this.username : "UNKNOWN")); // Add log
         }
     }
-
 
     public String getUsername() {
         return username;
@@ -299,7 +296,5 @@ public class ClientHandler implements Runnable {
             System.err.println("[ClientHandler] Error sending to " + drawCommand.getUsername() + ": " + e.getMessage());
         }
     }
-
-
 }
 

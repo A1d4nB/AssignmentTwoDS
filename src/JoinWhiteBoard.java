@@ -192,8 +192,7 @@ public class JoinWhiteBoard {
                         // Intermediate shapes just get shown, not added to list
                         intermediateShapes.removeIf(prev ->
                                 prev.getClass() == shape.getClass() &&
-                                        prev.getStartPoint().equals(shape.getStartPoint())
-                        );
+                                        prev.getStartPoint().equals(shape.getStartPoint()));
                         intermediateShapes.add(shape);
                     } else {
                         // This is a FINAL shape from another user

@@ -38,4 +38,5 @@ public class StrokeData implements Serializable {
     public void setIntermediate(boolean intermediate) {
         this.intermediate = intermediate;
     }
+
 }

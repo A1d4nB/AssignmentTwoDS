@@ -7,16 +7,16 @@ public class CreateWhiteBoard {
 
     private final int port;
     private String managerUsername;
-    private final Canvas canvas;                      // Shared drawing surface
-    private final List<ClientHandler> clients;        // Connected clients
-    private ServerSocket serverSocket;                // Main server socket
+    private final Canvas canvas;
+    private final List<ClientHandler> clients;
+    private ServerSocket serverSocket;
     private boolean running = false;
 
-    private List<StrokeData> strokes    = new ArrayList<>();       // Stores the freehand stroke data
-    private List<Shapes> shapeList      = new ArrayList<>();       // Stores the shapes
-    private List<DrawText> strings      = new ArrayList<>();       // Stores the strings
-    private List<ChatData> chats        = new ArrayList<>();       // Stores the chats
-    private List<String> users          = new ArrayList<>();       // Stores the list of users connected
+    private List<StrokeData> strokes    = new ArrayList<>();
+    private List<Shapes> shapeList      = new ArrayList<>();
+    private List<DrawText> strings      = new ArrayList<>();
+    private List<ChatData> chats        = new ArrayList<>();
+    private List<String> users          = new ArrayList<>();
     private final Map<String, ClientHandler> pendingClients;
 
     public CreateWhiteBoard(int port, String managerUsername) {
@@ -35,11 +35,9 @@ public class CreateWhiteBoard {
             System.out.println("[Server] Whiteboard created by manager: " + managerUsername);
             System.out.println("[Server] Listening on port " + port + " ...");
 
-            // Loop, listening for incoming connections
             while (running) {
                 Socket clientSocket = serverSocket.accept();
 
-                // Spawn handler thread to handle new connection
                 ClientHandler handler = new ClientHandler(clientSocket, this);
                 new Thread(handler).start();
             }
@@ -59,24 +57,21 @@ public class CreateWhiteBoard {
         }
     }
 
-    public synchronized boolean sendToUser(DrawCommand cmd, String target) {
+    public synchronized void sendToUser(DrawCommand cmd, String target) {
         synchronized (clients) {
             for (ClientHandler c : clients) {
                 if(c.getUsername() != null && c.getUsername().equals(target)) {
                     try {
                         c.sendCommand(cmd);
-                        return true;
+                        return;
                     } catch (Exception e) {
                         System.err.println("[Server] Failed to send private message: " + e.getMessage());
-                        return false;
+                        return;
                     }
                 }
             }
         }
-        return false;
     }
-
-
 
     public void addClient(ClientHandler client) {
         synchronized (clients) {
@@ -133,8 +128,8 @@ public class CreateWhiteBoard {
         pendingClients.put(username, handler);
     }
 
-    public ClientHandler removePendingClient(String username) {
-        return pendingClients.remove(username);
+    public void removePendingClient(String username) {
+        pendingClients.remove(username);
     }
 
     public ClientHandler getPendingClient(String username) {

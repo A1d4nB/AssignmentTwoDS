@@ -51,5 +51,6 @@ public abstract class Shapes implements Serializable {
     public void setIntermediate(boolean intermediate) {
         this.intermediate = intermediate;
     }
+
 }
 
